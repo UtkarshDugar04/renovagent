@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { recomputeReadiness } from "@/lib/yoxa/recompute-readiness";
+import type { Domain } from "@/lib/types/domain";
 
 export async function confirmMeaning(projectId: string) {
   const supabase = await createClient();
@@ -52,8 +54,11 @@ export async function answerQuestion(questionId: string, projectId: string, answ
     .update({ status: "resolved", resolved_at: new Date().toISOString() })
     .eq("id", questionId);
 
+  await recomputeReadiness(supabase, projectId, (question?.domain ?? "family") as Domain);
+
   revalidatePath("/questions");
   revalidatePath("/understanding");
+  revalidatePath("/design");
 }
 
 export async function resolveApproval(

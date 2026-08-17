@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { processTurn } from "@/lib/yoxa/process-turn";
+import { recomputeReadiness } from "@/lib/yoxa/recompute-readiness";
+import type { Domain } from "@/lib/types/domain";
 
 // Design feedback is a first-class turn, not a database write in isolation
 // — it goes through the same Knowledge Update Protocol as a conversation
@@ -70,6 +72,11 @@ export async function submitDesignFeedback(
         source: `design_feedback:${message?.id}`,
       }))
     );
+
+    const touchedDomains = new Set(turnResult.extractedEvidence.map((e) => e.domain));
+    for (const domain of touchedDomains) {
+      await recomputeReadiness(supabase, projectId, domain as Domain);
+    }
   }
 
   if (sentiment === "dislike") {

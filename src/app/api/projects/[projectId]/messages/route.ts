@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { processTurn } from "@/lib/yoxa/process-turn";
+import { recomputeReadiness } from "@/lib/yoxa/recompute-readiness";
+import type { Domain } from "@/lib/types/domain";
 
 // POST /api/projects/:projectId/messages
 // Implements the Knowledge Update Protocol: validate → write the inbound
@@ -126,6 +128,11 @@ export async function POST(
       .from("conversation_messages")
       .update({ extracted_evidence_ids: [] })
       .eq("id", message.id);
+
+    const touchedDomains = new Set(turnResult.extractedEvidence.map((e) => e.domain));
+    for (const domain of touchedDomains) {
+      await recomputeReadiness(supabase, projectId, domain as Domain);
+    }
   }
 
   if (turnResult.gaps.length > 0) {

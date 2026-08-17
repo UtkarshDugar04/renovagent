@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { recomputeReadiness } from "@/lib/yoxa/recompute-readiness";
+import type { Domain } from "@/lib/types/domain";
 
 export async function resolveEscalation(
   escalationId: string,
@@ -44,6 +46,9 @@ export async function resolveEscalation(
     activity_summary: `Professional verification resolved: ${resolutionText}`,
   });
 
+  await recomputeReadiness(supabase, projectId, (escalation.domain ?? "constraint") as Domain);
+
   revalidatePath(`/projects/${projectId}/escalations`);
   revalidatePath(`/projects/${projectId}/dna`);
+  revalidatePath(`/projects/${projectId}/overview`);
 }
