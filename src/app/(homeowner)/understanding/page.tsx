@@ -1,13 +1,16 @@
 import { redirect } from "next/navigation";
+import { Users, Home, Palette, Wallet, ShieldAlert, FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { Domain } from "@/lib/types/domain";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 
-const DOMAIN_LABELS: Record<Domain, string> = {
-  family: "Family",
-  spatial: "Home",
-  preference: "Preferences",
-  budget: "Budget",
-  constraint: "Constraints",
+const DOMAIN_META: Record<Domain, { label: string; icon: React.ElementType }> = {
+  family: { label: "Family", icon: Users },
+  spatial: { label: "Home", icon: Home },
+  preference: { label: "Preferences", icon: Palette },
+  budget: { label: "Budget", icon: Wallet },
+  constraint: { label: "Constraints", icon: ShieldAlert },
 };
 
 const STATUS_COPY: Record<string, string> = {
@@ -63,15 +66,18 @@ export default async function UnderstandingPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-lg font-semibold text-stone-900">What Renovagent understands</h1>
-        <p className="text-sm text-stone-500">
+        <h1 className="text-lg font-semibold tracking-tight">What Renovagent understands</h1>
+        <p className="text-sm text-muted-foreground">
           Everything here comes from what you&apos;ve told us — you can correct anything that&apos;s wrong.
         </p>
       </div>
 
       {attachmentLinks.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-semibold text-stone-700">Photos & documents</h2>
+          <h2 className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground/90">
+            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+            Photos & documents
+          </h2>
           <div className="flex flex-wrap gap-2">
             {attachmentLinks.map((a) => (
               <a
@@ -79,37 +85,44 @@ export default async function UnderstandingPage() {
                 href={a.url ?? "#"}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600 hover:bg-stone-50"
+                className="glass rounded-lg px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
-                📎 {a.label}
+                {a.label}
               </a>
             ))}
           </div>
         </section>
       )}
 
-      {domains.map((domain) => (
-        <section key={domain}>
-          <h2 className="mb-2 text-sm font-semibold text-stone-700">{DOMAIN_LABELS[domain]}</h2>
-          {grouped[domain].length === 0 ? (
-            <p className="text-sm text-stone-400">Nothing yet — this will fill in as we talk.</p>
-          ) : (
-            <ul className="space-y-1.5">
-              {grouped[domain].map((e) => (
-                <li
-                  key={e.id}
-                  className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800"
-                >
-                  {e.statement}
-                  <span className="ml-2 text-xs text-stone-400">
-                    ({STATUS_COPY[e.status] ?? e.status})
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ))}
+      {domains.map((domain) => {
+        const Icon = DOMAIN_META[domain].icon;
+        return (
+          <section key={domain}>
+            <h2 className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground/90">
+              <Icon className="h-3.5 w-3.5 text-primary" />
+              {DOMAIN_META[domain].label}
+            </h2>
+            {grouped[domain].length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nothing yet — this will fill in as we talk.
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {grouped[domain].map((e) => (
+                  <Card key={e.id} className="glass border-0">
+                    <CardContent className="flex items-center justify-between px-4 py-2.5">
+                      <span className="text-sm">{e.statement}</span>
+                      <Badge variant="secondary" className="ml-3 shrink-0 text-xs font-normal">
+                        {STATUS_COPY[e.status] ?? e.status}
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }

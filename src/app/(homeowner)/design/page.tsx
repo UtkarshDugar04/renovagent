@@ -1,7 +1,12 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { LayoutGrid, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { Domain } from "@/lib/types/domain";
 import { DesignOptionCard } from "@/components/design/DesignOptionCard";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const DOMAIN_LABELS: Record<Domain, string> = {
   family: "understanding your household",
@@ -17,6 +22,14 @@ const STATE_COPY: Record<string, string> = {
   partially_understood: "partly there",
   sufficient_for_validation: "ready to check",
   validated: "ready",
+};
+
+const STATE_VARIANT: Record<string, string> = {
+  not_started: "bg-muted text-muted-foreground",
+  discovery_in_progress: "bg-muted text-muted-foreground",
+  partially_understood: "bg-accent/10 text-accent",
+  sufficient_for_validation: "bg-primary/10 text-primary",
+  validated: "bg-accent/10 text-accent",
 };
 
 export default async function DesignPage() {
@@ -49,9 +62,6 @@ export default async function DesignPage() {
     .eq("decision_text", "meaning_verification_confirmed")
     .maybeSingle();
 
-  // Only ever show options that have cleared the second, independent
-  // validation pass — visible_to_homeowner is the gate the Knowledge
-  // Update Protocol flips, never the raw generation event.
   const { data: options } = await supabase
     .from("design_options")
     .select("id, label, rationale, trade_offs, cost_band, sourcing_status, what_it_would_feel_like, status")
@@ -62,7 +72,7 @@ export default async function DesignPage() {
   if (options && options.length > 0) {
     return (
       <div className="space-y-4">
-        <h1 className="text-lg font-semibold text-stone-900">Design exploration</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Design exploration</h1>
         <div className="grid gap-4 sm:grid-cols-2">
           {options.map((o) => (
             <DesignOptionCard
@@ -82,11 +92,14 @@ export default async function DesignPage() {
   if (allValidated && meaningConfirmed) {
     return (
       <div>
-        <h1 className="mb-2 text-lg font-semibold text-stone-900">Design exploration</h1>
-        <p className="text-sm text-stone-500">
-          Everything&apos;s in place — design options will appear here once Renovagent has
-          generated and checked them.
-        </p>
+        <h1 className="mb-4 text-lg font-semibold tracking-tight">Design exploration</h1>
+        <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
+          <LayoutGrid className="h-5 w-5 text-primary" />
+          <p className="text-sm text-muted-foreground">
+            Everything&apos;s in place — design options will appear here once Renovagent has
+            generated and checked them.
+          </p>
+        </div>
       </div>
     );
   }
@@ -94,26 +107,28 @@ export default async function DesignPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-semibold text-stone-900">Not ready for design yet</h1>
-        <p className="text-sm text-stone-500">
+        <h1 className="text-lg font-semibold tracking-tight">Not ready for design yet</h1>
+        <p className="text-sm text-muted-foreground">
           Renovagent explores designs once it has enough to work from — here&apos;s where things
           stand.
         </p>
       </div>
-      <ul className="space-y-2">
+      <div className="space-y-1.5">
         {(readiness ?? []).map((r) => (
-          <li
-            key={r.domain}
-            className="flex items-center justify-between rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm"
-          >
-            <span className="text-stone-700">{DOMAIN_LABELS[r.domain as Domain]}</span>
-            <span className="text-stone-400">{STATE_COPY[r.state] ?? r.state}</span>
-          </li>
+          <Card key={r.domain} className="glass border-0">
+            <CardContent className="flex items-center justify-between px-4 py-2.5">
+              <span className="text-sm">{DOMAIN_LABELS[r.domain as Domain]}</span>
+              <Badge className={`text-xs font-normal ${STATE_VARIANT[r.state]}`}>
+                {STATE_COPY[r.state] ?? r.state}
+              </Badge>
+            </CardContent>
+          </Card>
         ))}
-      </ul>
-      <a href="/conversation" className="inline-block text-sm underline text-stone-600">
+      </div>
+      <Button variant="outline" render={<Link href="/conversation" />}>
         Continue the conversation
-      </a>
+        <ArrowRight className="h-4 w-4" />
+      </Button>
     </div>
   );
 }

@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ThumbsUp, ThumbsDown, CircleCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { submitDesignFeedback } from "@/app/(homeowner)/design/actions";
 
 interface TradeOff {
@@ -43,82 +48,98 @@ export function DesignOptionCard({
   }
 
   return (
-    <div className={`rounded-xl border bg-white p-4 ${option.status === "rejected" ? "border-stone-200 opacity-50" : "border-stone-200"}`}>
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="font-semibold text-stone-900">{option.label}</h3>
-        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-          {option.status === "validated" ? "Checked and viable" : option.status === "rejected" ? "You passed on this" : "Proposed"}
-        </span>
-      </div>
-      <p className="mb-3 text-sm text-stone-600">{option.rationale}</p>
-
-      {option.what_it_would_feel_like && (
-        <p className="mb-3 text-sm italic text-stone-500">{option.what_it_would_feel_like}</p>
-      )}
-
-      {tradeOffs.length > 0 && (
-        <div className="mb-3 space-y-1">
-          {tradeOffs.map((t, i) => (
-            <p key={i} className="text-xs text-stone-500">
-              <span className="font-medium text-stone-700">Gains:</span> {t.gained} ·{" "}
-              <span className="font-medium text-stone-700">Costs:</span> {t.sacrificed}
-            </p>
-          ))}
+    <Card className={`glass border-white/10 ${option.status === "rejected" ? "opacity-50" : ""}`}>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base">{option.label}</CardTitle>
+          <Badge className="shrink-0 border-accent/30 bg-accent/10 text-accent">
+            {option.status === "validated"
+              ? "Checked and viable"
+              : option.status === "rejected"
+              ? "You passed on this"
+              : "Proposed"}
+          </Badge>
         </div>
-      )}
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">{option.rationale}</p>
 
-      {option.cost_band && (
-        <p className="mb-3 text-xs text-stone-400">
-          Estimated ₹{option.cost_band.low.toLocaleString()}–₹{option.cost_band.high.toLocaleString()}
-          {option.sourcing_status !== "grounded" && " (indicative, not yet vendor-confirmed)"}
-        </p>
-      )}
+        {option.what_it_would_feel_like && (
+          <p className="text-sm italic text-foreground/70">{option.what_it_would_feel_like}</p>
+        )}
 
-      <div className="border-t border-stone-100 pt-3">
-        {submitted ? (
-          <p className="text-xs text-stone-400">
-            Feedback recorded {submitted === "like" ? "👍" : "👎"} — thanks, this shapes what comes next.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            <div className="flex flex-wrap gap-1">
-              {SUB_ELEMENTS.map((el) => (
-                <button
-                  key={el}
-                  onClick={() => setSubElement((prev) => (prev === el ? undefined : el))}
-                  className={`rounded-full px-2 py-0.5 text-xs ${
-                    subElement === el ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-500 hover:bg-stone-200"
-                  }`}
-                >
-                  {el}
-                </button>
-              ))}
-            </div>
-            <input
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder={subElement ? `What about the ${subElement}?` : "Anything specific? (optional)"}
-              className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-xs outline-none focus:border-stone-500"
-            />
-            <div className="flex gap-2">
-              <button
-                disabled={isPending}
-                onClick={() => submit("like")}
-                className="flex-1 rounded-md bg-stone-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-stone-800 disabled:opacity-40"
-              >
-                👍 Like this
-              </button>
-              <button
-                disabled={isPending}
-                onClick={() => submit("dislike")}
-                className="flex-1 rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-40"
-              >
-                👎 Not this one
-              </button>
-            </div>
+        {tradeOffs.length > 0 && (
+          <div className="space-y-1">
+            {tradeOffs.map((t, i) => (
+              <p key={i} className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground/80">Gains:</span> {t.gained} ·{" "}
+                <span className="font-medium text-foreground/80">Costs:</span> {t.sacrificed}
+              </p>
+            ))}
           </div>
         )}
-      </div>
-    </div>
+
+        {option.cost_band && (
+          <p className="text-xs text-muted-foreground">
+            Estimated ₹{option.cost_band.low.toLocaleString()}–₹{option.cost_band.high.toLocaleString()}
+            {option.sourcing_status !== "grounded" && " (indicative, not yet vendor-confirmed)"}
+          </p>
+        )}
+
+        <div className="border-t border-white/10 pt-3">
+          {submitted ? (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CircleCheck className="h-3.5 w-3.5 text-accent" />
+              Feedback recorded — this shapes what comes next.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-1">
+                {SUB_ELEMENTS.map((el) => (
+                  <button
+                    key={el}
+                    onClick={() => setSubElement((prev) => (prev === el ? undefined : el))}
+                    className={`rounded-full px-2 py-0.5 text-xs transition-colors ${
+                      subElement === el
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {el}
+                  </button>
+                ))}
+              </div>
+              <Input
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder={subElement ? `What about the ${subElement}?` : "Anything specific? (optional)"}
+                className="h-8 text-xs"
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={isPending}
+                  onClick={() => submit("like")}
+                  className="flex-1"
+                >
+                  <ThumbsUp className="h-3.5 w-3.5" />
+                  Like this
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isPending}
+                  onClick={() => submit("dislike")}
+                  className="flex-1"
+                >
+                  <ThumbsDown className="h-3.5 w-3.5" />
+                  Not this one
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

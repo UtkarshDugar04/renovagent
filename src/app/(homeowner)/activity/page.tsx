@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { History } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ActivityPage() {
@@ -25,20 +26,23 @@ export default async function ActivityPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-semibold text-stone-900">Activity</h1>
-        <p className="text-sm text-stone-500">The story of your project so far.</p>
+        <h1 className="text-lg font-semibold tracking-tight">Activity</h1>
+        <p className="text-sm text-muted-foreground">The story of your project so far.</p>
       </div>
 
       {(!events || events.length === 0) && (
-        <p className="text-sm text-stone-400">Nothing to show yet.</p>
+        <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
+          <History className="h-5 w-5 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Nothing to show yet.</p>
+        </div>
       )}
 
-      <ol className="space-y-3 border-l border-stone-200 pl-4">
+      <ol className="space-y-3 border-l border-white/10 pl-4">
         {(events ?? []).map((e) => (
           <li key={e.id} className="relative">
-            <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-stone-300" />
-            <p className="text-sm text-stone-700">{e.activity_summary}</p>
-            <p className="text-xs text-stone-400">
+            <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-primary glow-primary" />
+            <p className="text-sm text-foreground/90">{e.activity_summary}</p>
+            <p className="text-xs text-muted-foreground">
               {new Date(e.created_at).toLocaleString()}
             </p>
           </li>

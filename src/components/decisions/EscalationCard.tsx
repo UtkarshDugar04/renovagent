@@ -1,3 +1,6 @@
+import { ShieldAlert } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 interface Escalation {
   id: string;
   trigger: string;
@@ -14,14 +17,21 @@ const AUTHORITY_COPY: Record<string, string> = {
 // matters, and who needs to resolve it.
 export function EscalationCard({ escalation }: { escalation: Escalation }) {
   return (
-    <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-      <p className="mb-1 text-sm font-semibold text-red-900">Professional verification needed</p>
-      <p className="mb-1 text-sm text-red-800">{escalation.question ?? escalation.trigger}</p>
-      <p className="text-xs text-red-600">
-        Renovagent can&apos;t confirm this from the available information — it needs{" "}
-        {AUTHORITY_COPY[escalation.required_authority] ?? "professional"} input before this can
-        move forward. Your agency has been notified.
-      </p>
-    </div>
+    <Card className="glass border-destructive/30">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="h-4 w-4 text-destructive" />
+          <CardTitle className="text-base">Professional verification needed</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-1">
+        <p className="text-sm text-muted-foreground">{escalation.question ?? escalation.trigger}</p>
+        <p className="text-xs text-destructive/80">
+          Renovagent can&apos;t confirm this from the available information — it needs{" "}
+          {AUTHORITY_COPY[escalation.required_authority] ?? "professional"} input before this can
+          move forward. Your agency has been notified.
+        </p>
+      </CardContent>
+    </Card>
   );
 }

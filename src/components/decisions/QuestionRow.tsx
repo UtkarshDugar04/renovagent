@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ChevronDown, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { answerQuestion } from "@/app/(homeowner)/questions/actions";
 
 interface Question {
@@ -11,13 +15,13 @@ interface Question {
   severity: string;
 }
 
-const SEVERITY_STYLE: Record<string, string> = {
-  e0: "border-stone-200 bg-white",
-  e1: "border-stone-200 bg-white",
-  e2: "border-amber-200 bg-amber-50",
-  e3: "border-amber-300 bg-amber-50",
-  e4: "border-red-200 bg-red-50",
-  e5: "border-red-300 bg-red-50",
+const SEVERITY_BORDER: Record<string, string> = {
+  e0: "border-white/10",
+  e1: "border-white/10",
+  e2: "border-accent/30",
+  e3: "border-accent/40",
+  e4: "border-destructive/40",
+  e5: "border-destructive/50",
 };
 
 export function QuestionRow({ question, projectId }: { question: Question; projectId: string }) {
@@ -26,41 +30,46 @@ export function QuestionRow({ question, projectId }: { question: Question; proje
   const [isPending, startTransition] = useTransition();
 
   return (
-    <div className={`rounded-lg border px-3 py-2 ${SEVERITY_STYLE[question.severity] ?? "border-stone-200 bg-white"}`}>
-      <button
-        className="w-full text-left text-sm text-stone-800"
-        onClick={() => setExpanded((v) => !v)}
-      >
-        {question.question_text}
-      </button>
-      {expanded && (
-        <div className="mt-2 space-y-2">
-          {question.why_it_matters && (
-            <p className="text-xs text-stone-500">{question.why_it_matters}</p>
-          )}
-          <div className="flex gap-2">
-            <input
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              placeholder="Your answer…"
-              className="flex-1 rounded-md border border-stone-300 px-2 py-1 text-sm outline-none focus:border-stone-500"
-            />
-            <button
-              disabled={!answer.trim() || isPending}
-              onClick={() =>
-                startTransition(async () => {
-                  await answerQuestion(question.id, projectId, answer.trim());
-                  setAnswer("");
-                  setExpanded(false);
-                })
-              }
-              className="rounded-md bg-stone-900 px-3 py-1 text-sm text-white disabled:opacity-40"
-            >
-              Send
-            </button>
+    <Card className={`glass border ${SEVERITY_BORDER[question.severity] ?? "border-white/10"}`}>
+      <CardContent className="p-3">
+        <button
+          className="flex w-full items-center justify-between gap-2 text-left text-sm"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          <span>{question.question_text}</span>
+          <ChevronDown
+            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`}
+          />
+        </button>
+        {expanded && (
+          <div className="mt-3 space-y-2">
+            {question.why_it_matters && (
+              <p className="text-xs text-muted-foreground">{question.why_it_matters}</p>
+            )}
+            <div className="flex gap-2">
+              <Input
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                placeholder="Your answer…"
+                className="h-8 text-sm"
+              />
+              <Button
+                size="sm"
+                disabled={!answer.trim() || isPending}
+                onClick={() =>
+                  startTransition(async () => {
+                    await answerQuestion(question.id, projectId, answer.trim());
+                    setAnswer("");
+                    setExpanded(false);
+                  })
+                }
+              >
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

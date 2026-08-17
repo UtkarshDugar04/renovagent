@@ -1,6 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { createProject } from "./actions";
 
 export function OnboardingForm() {
@@ -8,92 +14,70 @@ export function OnboardingForm() {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-stone-50 px-4">
-      <form
-        className="w-full max-w-md space-y-4"
-        action={(formData) => {
-          setError(null);
-          startTransition(async () => {
-            const result = await createProject(formData);
-            if (result?.error) setError(result.error);
-          });
-        }}
-      >
-        <h1 className="text-2xl font-semibold text-stone-900">
-          Let&apos;s start with the basics
-        </h1>
-        <p className="text-sm text-stone-500">
-          Nothing here is final — Renovagent will build on this as we talk.
-        </p>
-
-        {error && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-        )}
-
-        <div>
-          <label htmlFor="name" className="mb-1 block text-sm text-stone-600">
-            What should we call this project?
-          </label>
-          <input
-            id="name"
-            name="name"
-            required
-            placeholder="e.g. Our 3BHK renovation"
-            className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-500"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="scope_summary" className="mb-1 block text-sm text-stone-600">
-            In a sentence, why are you renovating?
-          </label>
-          <textarea
-            id="scope_summary"
-            name="scope_summary"
-            rows={2}
-            placeholder="e.g. the kitchen feels cramped and we want to open it up"
-            className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-500"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="budget_low" className="mb-1 block text-sm text-stone-600">
-              Comfortable budget from
-            </label>
-            <input
-              id="budget_low"
-              name="budget_low"
-              type="number"
-              placeholder="₹"
-              className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-500"
-            />
+    <div className="relative flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl glass glow-primary">
+            <Sparkles className="h-5 w-5 text-primary" />
           </div>
-          <div>
-            <label htmlFor="budget_high" className="mb-1 block text-sm text-stone-600">
-              to
-            </label>
-            <input
-              id="budget_high"
-              name="budget_high"
-              type="number"
-              placeholder="₹"
-              className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-500"
-            />
-          </div>
+          <h1 className="text-xl font-semibold tracking-tight">
+            Let&apos;s start with the basics
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Nothing here is final — Renovagent builds on this as we talk.
+          </p>
         </div>
-        <p className="text-xs text-stone-400">
-          A rough starting range is fine — this becomes an envelope, not a fixed number.
-        </p>
 
-        <button
-          type="submit"
-          disabled={isPending}
-          className="w-full rounded-md bg-stone-900 px-3 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+        <form
+          className="glass space-y-4 rounded-2xl p-6"
+          action={(formData) => {
+            setError(null);
+            startTransition(async () => {
+              const result = await createProject(formData);
+              if (result?.error) setError(result.error);
+            });
+          }}
         >
-          {isPending ? "Creating…" : "Start"}
-        </button>
-      </form>
+          {error && (
+            <Alert variant="destructive" className="border-destructive/30 bg-destructive/10">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="name">What should we call this project?</Label>
+            <Input id="name" name="name" required placeholder="e.g. Our 3BHK renovation" />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="scope_summary">In a sentence, why are you renovating?</Label>
+            <Textarea
+              id="scope_summary"
+              name="scope_summary"
+              rows={2}
+              placeholder="e.g. the kitchen feels cramped and we want to open it up"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="budget_low">Comfortable budget from</Label>
+              <Input id="budget_low" name="budget_low" type="number" placeholder="₹" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="budget_high">to</Label>
+              <Input id="budget_high" name="budget_high" type="number" placeholder="₹" />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            A rough starting range is fine — this becomes an envelope, not a fixed number.
+          </p>
+
+          <Button type="submit" disabled={isPending} className="w-full glow-primary">
+            {isPending ? "Creating…" : "Start"}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }

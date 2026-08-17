@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { MeaningVerificationCard } from "@/components/decisions/MeaningVerificationCard";
 import { QuestionRow } from "@/components/decisions/QuestionRow";
@@ -67,12 +68,17 @@ export default async function QuestionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-stone-900">Questions & Decisions</h1>
-        <p className="text-sm text-stone-500">Only shows up here when something actually needs you.</p>
+        <h1 className="text-lg font-semibold tracking-tight">Questions & Decisions</h1>
+        <p className="text-sm text-muted-foreground">
+          Only shows up here when something actually needs you.
+        </p>
       </div>
 
       {!hasAnything && (
-        <p className="text-sm text-stone-400">Nothing waiting on you right now.</p>
+        <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
+          <CheckCircle2 className="h-5 w-5 text-accent" />
+          <p className="text-sm text-muted-foreground">Nothing waiting on you right now.</p>
+        </div>
       )}
 
       {showMeaningVerification && <MeaningVerificationCard projectId={projectId} />}

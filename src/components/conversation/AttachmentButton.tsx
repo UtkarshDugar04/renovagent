@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Paperclip, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 
 export interface UploadedAttachment {
@@ -67,15 +69,17 @@ export function AttachmentButton({
           if (file) handleFile(file);
         }}
       />
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         disabled={uploading}
         onClick={() => inputRef.current?.click()}
-        className="rounded-full border border-stone-300 px-3 py-2 text-sm text-stone-500 hover:bg-stone-100 disabled:opacity-50"
+        className="h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
         title="Attach a photo or floor plan"
       >
-        {uploading ? "…" : "📎"}
-      </button>
+        {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+      </Button>
     </>
   );
 }

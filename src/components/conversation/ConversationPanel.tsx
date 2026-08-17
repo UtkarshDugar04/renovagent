@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { Send, Sparkles, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AttachmentButton, type UploadedAttachment } from "./AttachmentButton";
 
 interface Message {
@@ -45,7 +49,6 @@ export function ConversationPanel({
     const attachmentsToSend = pendingAttachments;
     setPendingAttachments([]);
 
-    // Optimistic append of the user's own message.
     const optimisticText =
       text || `Sent ${attachmentsToSend.length} file${attachmentsToSend.length > 1 ? "s" : ""}`;
     const optimistic: Message = {
@@ -91,41 +94,60 @@ export function ConversationPanel({
 
   return (
     <div className="flex h-[calc(100vh-140px)] flex-col">
-      <div className="flex-1 space-y-3 overflow-y-auto pb-4">
+      <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         {messages.length === 0 && (
-          <p className="text-sm text-stone-400">
-            Tell Renovagent about your home and what&apos;s not working — start anywhere.
-          </p>
-        )}
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex ${m.sender_role === "homeowner" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
-                m.sender_role === "homeowner"
-                  ? "bg-stone-900 text-white"
-                  : "bg-white border border-stone-200 text-stone-800"
-              }`}
-            >
-              {m.text}
-            </div>
+          <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <p className="text-sm text-muted-foreground">
+              Tell Renovagent about your home and what&apos;s not working — start anywhere.
+            </p>
           </div>
-        ))}
+        )}
+        {messages.map((m) => {
+          const isHomeowner = m.sender_role === "homeowner";
+          return (
+            <div
+              key={m.id}
+              className={`flex items-end gap-2 ${isHomeowner ? "justify-end" : "justify-start"}`}
+            >
+              {!isHomeowner && (
+                <Avatar className="h-7 w-7 shrink-0">
+                  <AvatarFallback className="bg-primary/20">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  </AvatarFallback>
+                </Avatar>
+              )}
+              <div
+                className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                  isHomeowner
+                    ? "bg-primary text-primary-foreground glow-primary"
+                    : "glass text-foreground"
+                }`}
+              >
+                {m.text}
+              </div>
+              {isHomeowner && (
+                <Avatar className="h-7 w-7 shrink-0">
+                  <AvatarFallback className="bg-secondary">
+                    <User className="h-3.5 w-3.5 text-secondary-foreground" />
+                  </AvatarFallback>
+                </Avatar>
+              )}
+            </div>
+          );
+        })}
         <div ref={bottomRef} />
       </div>
 
       {openQuestions.length > 0 && (
-        <div className="mb-3 space-y-2">
+        <div className="mb-3">
           {openQuestions.slice(0, 1).map((q) => (
-            <div
-              key={q.id}
-              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
-            >
-              <span className="font-medium">Renovagent is also wondering: </span>
-              {q.question_text}
-            </div>
+            <Alert key={q.id} className="border-accent/30 bg-accent/10">
+              <AlertDescription className="text-sm">
+                <span className="font-medium text-accent">Renovagent is also wondering: </span>
+                {q.question_text}
+              </AlertDescription>
+            </Alert>
           ))}
         </div>
       )}
@@ -135,14 +157,15 @@ export function ConversationPanel({
           {pendingAttachments.map((a) => (
             <span
               key={a.id}
-              className="rounded-full bg-stone-100 px-2.5 py-1 text-xs text-stone-600"
+              className="glass rounded-full px-2.5 py-1 text-xs text-muted-foreground"
             >
-              📎 {a.label}
+              {a.label}
             </span>
           ))}
         </div>
       )}
-      <div className="flex gap-2 border-t border-stone-200 pt-3">
+
+      <div className="glass flex items-center gap-2 rounded-full border border-white/10 p-1.5">
         <AttachmentButton
           projectId={projectId}
           onUploaded={(a) => setPendingAttachments((prev) => [...prev, a])}
@@ -157,15 +180,16 @@ export function ConversationPanel({
             }
           }}
           placeholder="Message Renovagent…"
-          className="flex-1 rounded-full border border-stone-300 px-4 py-2 text-sm outline-none focus:border-stone-500"
+          className="flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground"
         />
-        <button
+        <Button
+          size="icon"
           onClick={send}
           disabled={sending || (!draft.trim() && pendingAttachments.length === 0)}
-          className="rounded-full bg-stone-900 px-5 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-40"
+          className="h-9 w-9 shrink-0 rounded-full glow-primary"
         >
-          Send
-        </button>
+          <Send className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
