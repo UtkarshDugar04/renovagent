@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { AttachmentButton, type UploadedAttachment } from "./AttachmentButton";
 
 interface Message {
   id: string;
@@ -28,6 +29,7 @@ export function ConversationPanel({
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState<UploadedAttachment[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,16 +38,20 @@ export function ConversationPanel({
 
   async function send() {
     const text = draft.trim();
-    if (!text || sending) return;
+    if ((!text && pendingAttachments.length === 0) || sending) return;
 
     setSending(true);
     setDraft("");
+    const attachmentsToSend = pendingAttachments;
+    setPendingAttachments([]);
 
     // Optimistic append of the user's own message.
+    const optimisticText =
+      text || `Sent ${attachmentsToSend.length} file${attachmentsToSend.length > 1 ? "s" : ""}`;
     const optimistic: Message = {
       id: `optimistic-${Date.now()}`,
       sender_role: "homeowner",
-      text,
+      text: optimisticText,
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimistic]);
@@ -54,7 +60,10 @@ export function ConversationPanel({
       const res = await fetch(`/api/projects/${projectId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({
+          text: optimisticText,
+          attachmentIds: attachmentsToSend.map((a) => a.id),
+        }),
       });
 
       if (!res.ok) {
@@ -121,7 +130,23 @@ export function ConversationPanel({
         </div>
       )}
 
+      {pendingAttachments.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {pendingAttachments.map((a) => (
+            <span
+              key={a.id}
+              className="rounded-full bg-stone-100 px-2.5 py-1 text-xs text-stone-600"
+            >
+              📎 {a.label}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="flex gap-2 border-t border-stone-200 pt-3">
+        <AttachmentButton
+          projectId={projectId}
+          onUploaded={(a) => setPendingAttachments((prev) => [...prev, a])}
+        />
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -136,7 +161,7 @@ export function ConversationPanel({
         />
         <button
           onClick={send}
-          disabled={sending || !draft.trim()}
+          disabled={sending || (!draft.trim() && pendingAttachments.length === 0)}
           className="rounded-full bg-stone-900 px-5 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-40"
         >
           Send

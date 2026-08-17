@@ -17,6 +17,7 @@ export interface TurnRequest {
   projectId: string;
   turnType: TurnType;
   message: string;
+  attachments: { id: string; label: string; mimeType: string | null }[];
   context: {
     recentConversation: { role: string; text: string }[];
     openQuestions: { id: string; text: string; domain: string; severity: string }[];
@@ -45,11 +46,21 @@ export interface TurnResponse {
 export async function processTurn(request: TurnRequest): Promise<TurnResponse> {
   const isFirstMessage = request.context.recentConversation.length === 0;
 
+  // Per the Conversation Agent spec: an attachment the system can't yet
+  // interpret must still be acknowledged as evidence — status Unresolved,
+  // never silently dropped and never fabricated as understood.
+  const attachmentEvidence: ExtractedEvidence[] = request.attachments.map((a) => ({
+    domain: "spatial",
+    evidenceType: "observation",
+    statement: `Attachment received: ${a.label} (not yet interpreted — no image/document understanding wired up yet)`,
+    confidence: "unknown",
+  }));
+
   if (isFirstMessage) {
     return {
       conversationalReply:
         "Thanks for sharing that. To start building a real picture of your renovation — who's the project for, and what's the main thing that's not working about the space today?",
-      extractedEvidence: [],
+      extractedEvidence: attachmentEvidence,
       gaps: [],
       nextBestAction: "ask_conversation",
     };
@@ -57,8 +68,10 @@ export async function processTurn(request: TurnRequest): Promise<TurnResponse> {
 
   return {
     conversationalReply:
-      "Got it — I've noted that. (Renovagent's reasoning isn't connected yet, so this is an acknowledgement only; nothing structured has been extracted from this message.)",
-    extractedEvidence: [],
+      request.attachments.length > 0
+        ? "Got that file — I can't actually interpret images or documents yet, so I've logged it against the project as unresolved for now rather than guessing what's in it."
+        : "Got it — I've noted that. (Renovagent's reasoning isn't connected yet, so this is an acknowledgement only; nothing structured has been extracted from this message.)",
+    extractedEvidence: attachmentEvidence,
     gaps: [],
     nextBestAction: "none",
   };

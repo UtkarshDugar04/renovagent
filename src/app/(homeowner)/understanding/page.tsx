@@ -40,6 +40,21 @@ export default async function UnderstandingPage() {
     .eq("project_id", membership.project_id)
     .order("created_at", { ascending: false });
 
+  const { data: attachments } = await supabase
+    .from("attachments")
+    .select("id, storage_path, label, mime_type, created_at")
+    .eq("project_id", membership.project_id)
+    .order("created_at", { ascending: false });
+
+  const attachmentLinks = await Promise.all(
+    (attachments ?? []).map(async (a) => {
+      const { data } = await supabase.storage
+        .from("project-attachments")
+        .createSignedUrl(a.storage_path, 60 * 60);
+      return { ...a, url: data?.signedUrl ?? null };
+    })
+  );
+
   const domains: Domain[] = ["family", "spatial", "preference", "budget", "constraint"];
   const grouped = Object.fromEntries(
     domains.map((d) => [d, (evidence ?? []).filter((e) => e.domain === d)])
@@ -53,6 +68,25 @@ export default async function UnderstandingPage() {
           Everything here comes from what you&apos;ve told us — you can correct anything that&apos;s wrong.
         </p>
       </div>
+
+      {attachmentLinks.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold text-stone-700">Photos & documents</h2>
+          <div className="flex flex-wrap gap-2">
+            {attachmentLinks.map((a) => (
+              <a
+                key={a.id}
+                href={a.url ?? "#"}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600 hover:bg-stone-50"
+              >
+                📎 {a.label}
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
 
       {domains.map((domain) => (
         <section key={domain}>

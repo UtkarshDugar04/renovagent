@@ -33,8 +33,10 @@ export async function POST(
 
   const body = await request.json();
   const text = String(body?.text ?? "").trim();
-  if (!text) {
-    return NextResponse.json({ error: "Message text is required" }, { status: 400 });
+  const attachmentIds: string[] = Array.isArray(body?.attachmentIds) ? body.attachmentIds : [];
+
+  if (!text && attachmentIds.length === 0) {
+    return NextResponse.json({ error: "Message text or an attachment is required" }, { status: 400 });
   }
 
   // 1. Persist the inbound message (non-canonical log, but the context source).
@@ -73,11 +75,24 @@ export async function POST(
     .select("domain, state")
     .eq("project_id", projectId);
 
+  const { data: attachmentRows } = attachmentIds.length > 0
+    ? await supabase
+        .from("attachments")
+        .select("id, label, mime_type")
+        .in("id", attachmentIds)
+        .eq("project_id", projectId)
+    : { data: [] };
+
   // 3. Call the YOXA boundary (stubbed today).
   const turnResult = await processTurn({
     projectId,
     turnType: "new_message",
     message: text,
+    attachments: (attachmentRows ?? []).map((a) => ({
+      id: a.id,
+      label: a.label ?? "attachment",
+      mimeType: a.mime_type,
+    })),
     context: {
       recentConversation: (recentMessages ?? [])
         .reverse()
