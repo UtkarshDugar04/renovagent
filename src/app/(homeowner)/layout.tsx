@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { OnboardingForm } from "./onboarding-form";
 import { logout } from "@/app/auth/login/actions";
+import { RealtimeRefresher } from "@/components/shared/RealtimeRefresher";
 
 const NAV = [
   { href: "/conversation", label: "Conversation" },
@@ -33,6 +34,7 @@ export default async function HomeownerLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <RealtimeRefresher projectId={membership.project_id} />
       <header className="border-b border-stone-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div>

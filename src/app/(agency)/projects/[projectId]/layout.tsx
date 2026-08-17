@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { RealtimeRefresher } from "@/components/shared/RealtimeRefresher";
 
 const NAV = [
   { segment: "overview", label: "Overview" },
@@ -27,6 +28,7 @@ export default async function ProjectLayout({
 
   return (
     <div>
+      <RealtimeRefresher projectId={projectId} />
       <div className="mb-4">
         <Link href="/projects" className="text-xs text-stone-400 hover:text-stone-700">
           ← All projects
