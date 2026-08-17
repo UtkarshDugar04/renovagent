@@ -67,6 +67,7 @@ export default async function DesignPage() {
           {options.map((o) => (
             <DesignOptionCard
               key={o.id}
+              projectId={projectId}
               option={{
                 ...o,
                 cost_band: o.cost_band as { low: number; high: number; confidence: string } | null,
