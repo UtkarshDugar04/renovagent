@@ -1,0 +1,126 @@
+openapi: 3.1.0
+info:
+  title: Update Canonical Renovation DNA
+  version: "1.0.0"
+servers:
+  - url: https://renovagent-five.vercel.app
+security:
+  - clientApiBearer: []
+paths:
+  /api/yoxa/projects/{projectId}/dna/evidence:
+    post:
+      operationId: updateCanonicalRenovationDna
+      summary: Apply a provenance-aware evidence patch to a project's Renovation DNA.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [evidence]
+              properties:
+                evidence:
+                  type: array
+                  minItems: 1
+                  description: New evidence to add, each carrying its own canonical classification.
+                  items:
+                    type: object
+                    required: [domain, evidenceType, statement]
+                    properties:
+                      domain:
+                        type: string
+                        enum: [family, spatial, preference, budget, constraint]
+                      evidenceType:
+                        type: string
+                        description: aspiration, requirement, preference, routine, pain_point, observation, constraint, priority, decision, trade_off, assumption, inference, question, conflict, verification, or rejection.
+                      statement: { type: string }
+                      status:
+                        type: string
+                        enum: [explicit, verified, inferred, assumed, unresolved, conflicted, stale, superseded]
+                        description: Defaults to explicit.
+                      confidence:
+                        type: string
+                        enum: [unknown, low, medium, high]
+                        description: Defaults to unknown.
+                      authority:
+                        type: string
+                        enum: [d0_agent, d1_recommendation, d2_homeowner, d3_professional, d4_external]
+                        description: Defaults to d0_agent.
+                      source: { type: string, description: "Free-text provenance, e.g. a repository URL and retrieval timestamp." }
+                      contradictsEvidenceId:
+                        type: string
+                        format: uuid
+                        description: id of an existing evidence row this contradicts (from a prior DNA retrieval).
+                      supersededById:
+                        type: string
+                        format: uuid
+                        description: id of an existing evidence row this supersedes.
+                newQuestions:
+                  type: array
+                  items:
+                    type: object
+                    required: [domain, questionText]
+                    properties:
+                      domain: { type: string, enum: [family, spatial, preference, budget, constraint] }
+                      questionText: { type: string }
+                      whyItMatters: { type: string }
+                      severity: { type: string, enum: [e0, e1, e2, e3, e4, e5] }
+                      blocksReadiness: { type: boolean }
+                conflicts:
+                  type: array
+                  items:
+                    type: object
+                    required: [evidenceAId, evidenceBId, reason]
+                    properties:
+                      evidenceAId: { type: string, format: uuid }
+                      evidenceBId: { type: string, format: uuid }
+                      reason: { type: string }
+                      affectedDomains:
+                        type: array
+                        items: { type: string, enum: [family, spatial, preference, budget, constraint] }
+      responses:
+        "201":
+          description: Evidence was written.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [evidence]
+                properties:
+                  evidence:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, project_id, domain, evidence_type, statement, status, confidence, authority, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        project_id: { type: string, format: uuid }
+                        domain: { type: string }
+                        evidence_type: { type: string }
+                        statement: { type: string }
+                        status: { type: string }
+                        confidence: { type: string }
+                        authority: { type: string }
+                        source: { type: [string, "null"] }
+                        household_member_id: { type: [string, "null"], format: uuid }
+                        contradicts_evidence_id: { type: [string, "null"], format: uuid }
+                        superseded_by_id: { type: [string, "null"], format: uuid }
+                        related_evidence_ids:
+                          type: array
+                          items: { type: string, format: uuid }
+                        created_at: { type: string, format: date-time }
+        "400":
+          description: No evidence items were supplied.
+          content:
+            application/json:
+              schema: { type: object, required: [error], properties: { error: { type: string } } }
+components:
+  securitySchemes:
+    clientApiBearer:
+      type: http
+      scheme: bearer

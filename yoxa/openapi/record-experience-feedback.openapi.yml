@@ -1,0 +1,123 @@
+openapi: 3.1.0
+info:
+  title: Record Experience Feedback
+  version: "1.0.0"
+servers:
+  - url: https://renovagent-five.vercel.app
+security:
+  - clientApiBearer: []
+paths:
+  /api/yoxa/projects/{projectId}/experience-feedback:
+    post:
+      operationId: recordExperienceFeedback
+      summary: Persist classified human feedback, rejection, and any resulting decision as new evidence.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                designOptionId:
+                  type: string
+                  format: uuid
+                  description: Required together with sentiment if this feedback is about a specific design option.
+                sentiment:
+                  type: string
+                  enum: [like, dislike, neutral]
+                comment: { type: string }
+                subElement:
+                  type: string
+                  description: e.g. layout, materials, colour, storage, lighting, cost.
+                evidence:
+                  type: array
+                  description: Newly classified evidence this feedback produced (changed preferences, rejections, etc.).
+                  items:
+                    type: object
+                    required: [domain, evidenceType, statement]
+                    properties:
+                      domain: { type: string, enum: [family, spatial, preference, budget, constraint] }
+                      evidenceType: { type: string }
+                      statement: { type: string }
+                      status:
+                        type: string
+                        enum: [explicit, verified, inferred, assumed, unresolved, conflicted, stale, superseded]
+                      confidence: { type: string, enum: [unknown, low, medium, high] }
+                decision:
+                  type: object
+                  description: Present only if this feedback resulted in a recorded decision.
+                  required: [decisionText]
+                  properties:
+                    decisionText: { type: string }
+                    decisionMakerRole: { type: string, enum: [homeowner, agency, admin] }
+                    alternativesConsidered:
+                      type: array
+                      items: { type: string }
+                    rationale: { type: string }
+                    affectedDomains:
+                      type: array
+                      items: { type: string, enum: [family, spatial, preference, budget, constraint] }
+                    reversibility: { type: string }
+      responses:
+        "201":
+          description: Feedback (and any decision) was recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [evidence, decision]
+                properties:
+                  evidence:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        project_id: { type: string, format: uuid }
+                        domain: { type: string }
+                        evidence_type: { type: string }
+                        statement: { type: string }
+                        status: { type: string }
+                        confidence: { type: string }
+                        authority: { type: string }
+                        source: { type: [string, "null"] }
+                        household_member_id: { type: [string, "null"], format: uuid }
+                        contradicts_evidence_id: { type: [string, "null"], format: uuid }
+                        superseded_by_id: { type: [string, "null"], format: uuid }
+                        related_evidence_ids:
+                          type: array
+                          items: { type: string, format: uuid }
+                        created_at: { type: string, format: date-time }
+                  decision:
+                    type: [object, "null"]
+                    properties:
+                      id: { type: string, format: uuid }
+                      project_id: { type: string, format: uuid }
+                      decision_text: { type: string }
+                      decision_maker_role: { type: [string, "null"] }
+                      alternatives_considered:
+                        type: array
+                        items: { type: string }
+                      rationale: { type: [string, "null"] }
+                      affected_domains:
+                        type: array
+                        items: { type: string }
+                      reversibility: { type: [string, "null"] }
+                      status: { type: string }
+                      supersedes_decision_id: { type: [string, "null"], format: uuid }
+                      created_at: { type: string, format: date-time }
+        "500":
+          description: The write failed.
+          content:
+            application/json:
+              schema: { type: object, required: [error], properties: { error: { type: string } } }
+components:
+  securitySchemes:
+    clientApiBearer:
+      type: http
+      scheme: bearer

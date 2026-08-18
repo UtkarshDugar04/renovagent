@@ -1,0 +1,244 @@
+openapi: 3.1.0
+info:
+  title: Retrieve Canonical Renovation DNA
+  version: "1.0.0"
+servers:
+  - url: https://renovagent-five.vercel.app
+security:
+  - clientApiBearer: []
+paths:
+  /api/yoxa/projects/{projectId}/dna:
+    get:
+      operationId: getCanonicalRenovationDna
+      summary: Read the full canonical Renovation DNA for one project.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project's id.
+      responses:
+        "200":
+          description: The project's current Renovation DNA.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - project
+                  - householdMembers
+                  - evidence
+                  - questions
+                  - assumptions
+                  - decisions
+                  - tradeOffs
+                  - conflicts
+                  - readiness
+                  - constraints
+                  - budgetLines
+                  - spatialElements
+                properties:
+                  project:
+                    type: object
+                    required: [id, name, phase, created_at]
+                    properties:
+                      id: { type: string, format: uuid }
+                      name: { type: string }
+                      property_address: { type: [string, "null"] }
+                      scope_summary: { type: [string, "null"] }
+                      budget_comfortable_low: { type: [number, "null"] }
+                      budget_comfortable_high: { type: [number, "null"] }
+                      budget_stretch_low: { type: [number, "null"] }
+                      budget_stretch_high: { type: [number, "null"] }
+                      budget_ceiling: { type: [number, "null"] }
+                      phase: { type: string }
+                      created_at: { type: string, format: date-time }
+                  householdMembers:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, is_primary_contact]
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        role_in_household: { type: [string, "null"] }
+                        is_primary_contact: { type: boolean }
+                        accessibility_needs: { type: [string, "null"] }
+                  evidence:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, domain, evidence_type, statement, status, confidence, authority, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        domain: { type: string, enum: [family, spatial, preference, budget, constraint] }
+                        evidence_type: { type: string }
+                        statement: { type: string }
+                        status:
+                          type: string
+                          enum: [explicit, verified, inferred, assumed, unresolved, conflicted, stale, superseded]
+                        confidence: { type: string, enum: [unknown, low, medium, high] }
+                        authority: { type: string, enum: [d0_agent, d1_recommendation, d2_homeowner, d3_professional, d4_external] }
+                        source: { type: [string, "null"] }
+                        household_member_id: { type: [string, "null"], format: uuid }
+                        contradicts_evidence_id: { type: [string, "null"], format: uuid }
+                        superseded_by_id: { type: [string, "null"], format: uuid }
+                        related_evidence_ids:
+                          type: array
+                          items: { type: string, format: uuid }
+                        created_at: { type: string, format: date-time }
+                  questions:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, question_text, severity, blocks_readiness, status, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        domain: { type: [string, "null"] }
+                        question_text: { type: string }
+                        why_it_matters: { type: [string, "null"] }
+                        severity: { type: string, enum: [e0, e1, e2, e3, e4, e5] }
+                        blocks_readiness: { type: boolean }
+                        owner_role: { type: [string, "null"] }
+                        status: { type: string, enum: [open, waiting, resolved] }
+                        resolution_evidence_id: { type: [string, "null"], format: uuid }
+                        created_at: { type: string, format: date-time }
+                        resolved_at: { type: [string, "null"], format: date-time }
+                  assumptions:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, statement, confidence, verification_required, status, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        statement: { type: string }
+                        domain: { type: [string, "null"] }
+                        confidence: { type: string, enum: [unknown, low, medium, high] }
+                        impact_if_wrong: { type: [string, "null"] }
+                        verification_required: { type: boolean }
+                        status: { type: string }
+                        created_at: { type: string, format: date-time }
+                  decisions:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, decision_text, alternatives_considered, affected_domains, status, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        decision_text: { type: string }
+                        decision_maker_role: { type: [string, "null"] }
+                        alternatives_considered:
+                          type: array
+                          items: { type: string }
+                        rationale: { type: [string, "null"] }
+                        affected_domains:
+                          type: array
+                          items: { type: string }
+                        reversibility: { type: [string, "null"] }
+                        status: { type: string }
+                        supersedes_decision_id: { type: [string, "null"], format: uuid }
+                        created_at: { type: string, format: date-time }
+                  tradeOffs:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, gained, sacrificed, status, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        gained: { type: string }
+                        sacrificed: { type: string }
+                        reason: { type: [string, "null"] }
+                        accepted_by_role: { type: [string, "null"] }
+                        status: { type: string }
+                        created_at: { type: string, format: date-time }
+                  conflicts:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, evidence_a_id, evidence_b_id, reason, affected_domains, status, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        evidence_a_id: { type: string, format: uuid }
+                        evidence_b_id: { type: string, format: uuid }
+                        reason: { type: string }
+                        affected_domains:
+                          type: array
+                          items: { type: string }
+                        blocks_decision_id: { type: [string, "null"], format: uuid }
+                        status: { type: string }
+                        created_at: { type: string, format: date-time }
+                        resolved_at: { type: [string, "null"], format: date-time }
+                  readiness:
+                    type: array
+                    items:
+                      type: object
+                      required: [domain, state]
+                      properties:
+                        domain: { type: string, enum: [family, spatial, preference, budget, constraint] }
+                        state:
+                          type: string
+                          enum: [not_started, discovery_in_progress, partially_understood, sufficient_for_validation, validated]
+                        reason: { type: [string, "null"] }
+                        updated_at: { type: string, format: date-time }
+                  constraints:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, category, hardness, status, description, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        category: { type: string }
+                        hardness: { type: string, enum: [hard, soft, negotiable] }
+                        status: { type: string, enum: [confirmed, provisional, unresolved, requires_verification, cleared] }
+                        description: { type: string }
+                        evidence_ids:
+                          type: array
+                          items: { type: string, format: uuid }
+                        created_at: { type: string, format: date-time }
+                  budgetLines:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, category, priority_tier, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        category: { type: string }
+                        probable_low: { type: [number, "null"] }
+                        probable_high: { type: [number, "null"] }
+                        estimated: { type: [number, "null"] }
+                        quoted: { type: [number, "null"] }
+                        confirmed: { type: [number, "null"] }
+                        priority_tier: { type: string }
+                        created_at: { type: string, format: date-time }
+                  spatialElements:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, element_type, certainty, requires_verification, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        room: { type: [string, "null"] }
+                        element_type: { type: string }
+                        attributes: { type: object }
+                        certainty: { type: string }
+                        requires_verification: { type: boolean }
+                        evidence_ids:
+                          type: array
+                          items: { type: string, format: uuid }
+                        created_at: { type: string, format: date-time }
+        "404":
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error: { type: string }
+components:
+  securitySchemes:
+    clientApiBearer:
+      type: http
+      scheme: bearer

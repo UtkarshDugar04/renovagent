@@ -1,0 +1,116 @@
+openapi: 3.1.0
+info:
+  title: Record Proposed Design Package
+  version: "1.0.0"
+servers:
+  - url: https://renovagent-five.vercel.app
+security:
+  - clientApiBearer: []
+paths:
+  /api/yoxa/projects/{projectId}/design-options:
+    post:
+      operationId: recordProposedDesignPackage
+      summary: Register proposed (not approved) design options for a project.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [options]
+              properties:
+                roundNumber:
+                  type: integer
+                  description: Existing or new design round number. Omit to start a new round automatically.
+                options:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [label, rationale]
+                    properties:
+                      label: { type: string }
+                      rationale: { type: string }
+                      satisfiesEvidenceIds:
+                        type: array
+                        items: { type: string, format: uuid }
+                      tradeOffs:
+                        type: array
+                        items:
+                          type: object
+                          required: [gained, sacrificed]
+                          properties:
+                            gained: { type: string }
+                            sacrificed: { type: string }
+                      costBand:
+                        type: object
+                        nullable: true
+                        properties:
+                          low: { type: number }
+                          high: { type: number }
+                          confidence: { type: string, enum: [unknown, low, medium, high] }
+                      sourcingStatus:
+                        type: string
+                        enum: [not_evaluated, grounded, indicative, ungrounded]
+                        description: Defaults to not_evaluated.
+                      whatItWouldFeelLike: { type: string }
+                      visibleToHomeowner:
+                        type: boolean
+                        description: Defaults to false — hidden from the homeowner until the agency releases it.
+      responses:
+        "201":
+          description: Design options were proposed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [designRoundId, options]
+                properties:
+                  designRoundId: { type: string, format: uuid }
+                  options:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, project_id, design_round_id, label, rationale, status, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        project_id: { type: string, format: uuid }
+                        design_round_id: { type: string, format: uuid }
+                        label: { type: string }
+                        rationale: { type: string }
+                        satisfies_evidence_ids:
+                          type: array
+                          items: { type: string, format: uuid }
+                        trade_offs:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              gained: { type: string }
+                              sacrificed: { type: string }
+                        cost_band:
+                          type: [object, "null"]
+                          properties:
+                            low: { type: number }
+                            high: { type: number }
+                            confidence: { type: string }
+                        what_it_would_feel_like: { type: [string, "null"] }
+                        status: { type: string, enum: [proposed, validated, rejected] }
+                        visible_to_homeowner: { type: boolean }
+                        sourcing_status: { type: string }
+                        created_at: { type: string, format: date-time }
+        "400":
+          description: No options were supplied.
+          content:
+            application/json:
+              schema: { type: object, required: [error], properties: { error: { type: string } } }
+components:
+  securitySchemes:
+    clientApiBearer:
+      type: http
+      scheme: bearer

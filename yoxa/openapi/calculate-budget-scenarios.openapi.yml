@@ -1,0 +1,77 @@
+openapi: 3.1.0
+info:
+  title: Calculate Budget Scenarios
+  version: "1.0.0"
+servers:
+  - url: https://renovagent-five.vercel.app
+security:
+  - clientApiBearer: []
+paths:
+  /api/yoxa/projects/{projectId}/budget-scenarios:
+    post:
+      operationId: calculateBudgetScenarios
+      summary: Deterministically calculate budget scenarios from a project's real budget_lines and ceiling — never a guessed price.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contingencyPercent:
+                  type: number
+                  description: Defaults to 10.
+                categoryEstimates:
+                  type: array
+                  description: Hypothetical category amounts to include in this calculation only — not persisted.
+                  items:
+                    type: object
+                    required: [category, estimated]
+                    properties:
+                      category: { type: string }
+                      estimated: { type: number }
+      responses:
+        "200":
+          description: The calculated scenario.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [categories, totalPlanned, remainingMarginBasis]
+                properties:
+                  ceiling: { type: [number, "null"] }
+                  comfortableLow: { type: [number, "null"] }
+                  comfortableHigh: { type: [number, "null"] }
+                  stretchHigh: { type: [number, "null"] }
+                  contingencyPercent: { type: number }
+                  contingencyReserve: { type: [number, "null"] }
+                  preContingencyEnvelope: { type: [number, "null"] }
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      required: [category, amount, basis]
+                      properties:
+                        category: { type: string }
+                        amount: { type: [number, "null"] }
+                        basis:
+                          type: string
+                          enum: [confirmed, quoted, estimated, assumption, unknown]
+                  totalPlanned: { type: number }
+                  remainingMargin: { type: [number, "null"] }
+                  remainingMarginBasis: { type: string }
+        "404":
+          description: Project not found.
+          content:
+            application/json:
+              schema: { type: object, required: [error], properties: { error: { type: string } } }
+components:
+  securitySchemes:
+    clientApiBearer:
+      type: http
+      scheme: bearer

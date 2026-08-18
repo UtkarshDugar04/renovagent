@@ -1,0 +1,112 @@
+openapi: 3.1.0
+info:
+  title: Apply Dependency Impact Patch
+  version: "1.0.0"
+servers:
+  - url: https://renovagent-five.vercel.app
+security:
+  - clientApiBearer: []
+paths:
+  /api/yoxa/projects/{projectId}/dependency-impact:
+    post:
+      operationId: applyDependencyImpactPatch
+      summary: Propagate a change across dependent design options, decisions, readiness, and questions while preserving history.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [summary]
+              properties:
+                summary:
+                  type: string
+                  description: Human-readable summary of what changed and why, logged as the project's activity entry.
+                invalidatedDesignOptionIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                  description: design_options to mark rejected as a result of this change.
+                supersededDecisions:
+                  type: array
+                  items:
+                    type: object
+                    required: [oldDecisionId, newDecisionText]
+                    properties:
+                      oldDecisionId:
+                        type: string
+                        format: uuid
+                        description: The decision being superseded — marked superseded, not deleted.
+                      newDecisionText: { type: string }
+                      decisionMakerRole: { type: string, enum: [homeowner, agency, admin] }
+                      rationale: { type: string }
+                      affectedDomains:
+                        type: array
+                        items: { type: string, enum: [family, spatial, preference, budget, constraint] }
+                readinessUpdates:
+                  type: array
+                  items:
+                    type: object
+                    required: [domain, state]
+                    properties:
+                      domain: { type: string, enum: [family, spatial, preference, budget, constraint] }
+                      state:
+                        type: string
+                        enum: [not_started, discovery_in_progress, partially_understood, sufficient_for_validation, validated]
+                      reason: { type: string }
+                newQuestions:
+                  type: array
+                  items:
+                    type: object
+                    required: [domain, questionText]
+                    properties:
+                      domain: { type: string, enum: [family, spatial, preference, budget, constraint] }
+                      questionText: { type: string }
+                      whyItMatters: { type: string }
+                      severity: { type: string, enum: [e0, e1, e2, e3, e4, e5] }
+      responses:
+        "200":
+          description: The change was propagated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invalidatedDesignOptionIds, newDecisions]
+                properties:
+                  invalidatedDesignOptionIds:
+                    type: array
+                    items: { type: string, format: uuid }
+                  newDecisions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        project_id: { type: string, format: uuid }
+                        decision_text: { type: string }
+                        decision_maker_role: { type: [string, "null"] }
+                        alternatives_considered:
+                          type: array
+                          items: { type: string }
+                        rationale: { type: [string, "null"] }
+                        affected_domains:
+                          type: array
+                          items: { type: string }
+                        reversibility: { type: [string, "null"] }
+                        status: { type: string }
+                        supersedes_decision_id: { type: [string, "null"], format: uuid }
+                        created_at: { type: string, format: date-time }
+        "500":
+          description: The patch failed to apply.
+          content:
+            application/json:
+              schema: { type: object, required: [error], properties: { error: { type: string } } }
+components:
+  securitySchemes:
+    clientApiBearer:
+      type: http
+      scheme: bearer

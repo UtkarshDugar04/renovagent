@@ -1,0 +1,70 @@
+openapi: 3.1.0
+info:
+  title: Record Pending Orchestration State
+  version: "1.0.0"
+servers:
+  - url: https://renovagent-five.vercel.app
+security:
+  - clientApiBearer: []
+paths:
+  /api/yoxa/projects/{projectId}/orchestration-state:
+    post:
+      operationId: recordPendingOrchestrationState
+      summary: Log a bounded next-action plan, owners, and re-entry point for a project.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [summary]
+              properties:
+                summary:
+                  type: string
+                  description: Human-readable orchestration summary, shown in the project's activity feed.
+                pendingActions:
+                  type: array
+                  items:
+                    type: object
+                    required: [description]
+                    properties:
+                      description: { type: string }
+                      owner: { type: string, description: "Who owns this action, e.g. a household member or professional role." }
+                      dueContext: { type: string, description: "Free-text timing context, not a hard deadline." }
+                escalationLevel:
+                  type: string
+                  enum: [e0, e1, e2, e3, e4, e5]
+      responses:
+        "201":
+          description: Orchestration state was logged.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [event]
+                properties:
+                  event:
+                    type: object
+                    required: [id, project_id, event_type, created_at]
+                    properties:
+                      id: { type: string, format: uuid }
+                      project_id: { type: string, format: uuid }
+                      event_type: { type: string }
+                      payload: { type: object }
+                      activity_summary: { type: [string, "null"] }
+                      created_at: { type: string, format: date-time }
+        "400":
+          description: summary was missing.
+          content:
+            application/json:
+              schema: { type: object, required: [error], properties: { error: { type: string } } }
+components:
+  securitySchemes:
+    clientApiBearer:
+      type: http
+      scheme: bearer
