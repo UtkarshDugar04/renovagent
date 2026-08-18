@@ -11,7 +11,7 @@
 
 import type { Domain, EvidenceType, Confidence, Severity } from "@/lib/types/domain";
 
-export type TurnType = "new_message" | "design_feedback" | "decision_resolution";
+export type TurnType = "new_message" | "design_feedback" | "decision_resolution" | "call_transcript";
 
 export interface TurnRequest {
   projectId: string;
@@ -55,6 +55,29 @@ export async function processTurn(request: TurnRequest): Promise<TurnResponse> {
     statement: `Attachment received: ${a.label} (not yet interpreted — no image/document understanding wired up yet)`,
     confidence: "unknown",
   }));
+
+  // Call transcript turns arrive one spoken sentence at a time. A reply
+  // bubble after every fragment would flood the live feed, so this stub
+  // only speaks once, on the first fragment of the call, and otherwise
+  // listens silently (empty reply — the route skips posting an empty
+  // reply). Real YOXA should decide per-fragment whether interjecting is
+  // warranted, same as a human would.
+  if (request.turnType === "call_transcript") {
+    if (isFirstMessage) {
+      return {
+        conversationalReply: "Listening in — I'll drop in questions here as things come up.",
+        extractedEvidence: [],
+        gaps: [],
+        nextBestAction: "none",
+      };
+    }
+    return {
+      conversationalReply: "",
+      extractedEvidence: [],
+      gaps: [],
+      nextBestAction: "none",
+    };
+  }
 
   if (isFirstMessage) {
     return {

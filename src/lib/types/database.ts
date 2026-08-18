@@ -243,6 +243,48 @@ export type Database = {
           },
         ]
       }
+      call_sessions: {
+        Row: {
+          ended_at: string | null
+          id: string
+          project_id: string
+          started_at: string
+          started_by: string | null
+          status: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          project_id: string
+          started_at?: string
+          started_by?: string | null
+          status?: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          project_id?: string
+          started_at?: string
+          started_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_sessions_started_by_fkey"
+            columns: ["started_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conflicts: {
         Row: {
           affected_domains: Database["public"]["Enums"]["domain_type"][]
@@ -313,6 +355,7 @@ export type Database = {
       }
       conversation_messages: {
         Row: {
+          call_session_id: string | null
           created_at: string
           extracted_evidence_ids: string[]
           id: string
@@ -323,6 +366,7 @@ export type Database = {
           turn_type: string
         }
         Insert: {
+          call_session_id?: string | null
           created_at?: string
           extracted_evidence_ids?: string[]
           id?: string
@@ -333,6 +377,7 @@ export type Database = {
           turn_type?: string
         }
         Update: {
+          call_session_id?: string | null
           created_at?: string
           extracted_evidence_ids?: string[]
           id?: string
@@ -343,6 +388,13 @@ export type Database = {
           turn_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "conversation_messages_call_session_id_fkey"
+            columns: ["call_session_id"]
+            isOneToOne: false
+            referencedRelation: "call_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "conversation_messages_project_id_fkey"
             columns: ["project_id"]
@@ -1194,6 +1246,7 @@ export type Database = {
     }
     Functions: {
       is_project_member: { Args: { p_project_id: string }; Returns: boolean }
+      is_staff: { Args: never; Returns: boolean }
     }
     Enums: {
       authority_level:

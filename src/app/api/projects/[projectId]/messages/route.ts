@@ -36,6 +36,8 @@ export async function POST(
   const body = await request.json();
   const text = String(body?.text ?? "").trim();
   const attachmentIds: string[] = Array.isArray(body?.attachmentIds) ? body.attachmentIds : [];
+  const turnType: string = typeof body?.turnType === "string" ? body.turnType : "new_message";
+  const callSessionId: string | null = typeof body?.callSessionId === "string" ? body.callSessionId : null;
 
   if (!text && attachmentIds.length === 0) {
     return NextResponse.json({ error: "Message text or an attachment is required" }, { status: 400 });
@@ -49,7 +51,8 @@ export async function POST(
       sender_role: membership.role,
       sender_id: user.id,
       text,
-      turn_type: "new_message",
+      turn_type: turnType,
+      call_session_id: callSessionId,
     })
     .select()
     .single();
@@ -88,7 +91,7 @@ export async function POST(
   // 3. Call the YOXA boundary (stubbed today).
   const turnResult = await processTurn({
     projectId,
-    turnType: "new_message",
+    turnType: turnType as "new_message" | "design_feedback" | "decision_resolution" | "call_transcript",
     message: text,
     attachments: (attachmentRows ?? []).map((a) => ({
       id: a.id,
@@ -147,17 +150,21 @@ export async function POST(
     );
   }
 
-  // 5. Log the reply as a message + an activity event.
-  const { data: replyMessage } = await supabase
-    .from("conversation_messages")
-    .insert({
-      project_id: projectId,
-      sender_role: "admin",
-      text: turnResult.conversationalReply,
-      turn_type: "new_message",
-    })
-    .select()
-    .single();
+  // 5. Log the reply as a message + an activity event. Call-transcript turns
+  // often produce no reply (see the stub) — skip writing an empty bubble.
+  const { data: replyMessage } = turnResult.conversationalReply
+    ? await supabase
+        .from("conversation_messages")
+        .insert({
+          project_id: projectId,
+          sender_role: "admin",
+          text: turnResult.conversationalReply,
+          turn_type: "new_message",
+          call_session_id: callSessionId,
+        })
+        .select()
+        .single()
+    : { data: null };
 
   await supabase.from("events").insert({
     project_id: projectId,

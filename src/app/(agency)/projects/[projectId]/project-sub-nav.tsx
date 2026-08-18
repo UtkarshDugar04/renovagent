@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, BrainCircuit, LayoutGrid, ShieldAlert, Handshake } from "lucide-react";
+import { LayoutDashboard, BrainCircuit, LayoutGrid, ShieldAlert, Handshake, Phone } from "lucide-react";
 
 const NAV = [
   { segment: "overview", label: "Overview", icon: LayoutDashboard },
+  { segment: "call", label: "Call", icon: Phone },
   { segment: "dna", label: "Renovation DNA", icon: BrainCircuit },
   { segment: "design-review", label: "Design Review", icon: LayoutGrid },
   { segment: "escalations", label: "Escalations", icon: ShieldAlert },

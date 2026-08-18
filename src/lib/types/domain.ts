@@ -153,7 +153,7 @@ export interface ConversationMessage {
   projectId: string;
   senderRole: "homeowner" | "agency" | "admin";
   text: string;
-  turnType: "new_message" | "design_feedback" | "decision_resolution";
+  turnType: "new_message" | "design_feedback" | "decision_resolution" | "call_transcript";
   createdAt: string;
 }
 

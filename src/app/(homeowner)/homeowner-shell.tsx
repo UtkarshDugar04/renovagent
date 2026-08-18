@@ -10,6 +10,7 @@ import {
   Activity,
   Sparkles,
   LogOut,
+  Phone,
 } from "lucide-react";
 import {
   Sidebar,
@@ -30,6 +31,7 @@ import { logout } from "@/app/auth/login/actions";
 
 const NAV = [
   { href: "/conversation", label: "Conversation", icon: MessagesSquare },
+  { href: "/call", label: "Call", icon: Phone },
   { href: "/understanding", label: "Understanding", icon: BrainCircuit },
   { href: "/questions", label: "Questions & Decisions", icon: ListTodo },
   { href: "/design", label: "Design", icon: LayoutGrid },
