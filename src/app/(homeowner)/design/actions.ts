@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { processTurn } from "@/lib/yoxa/process-turn";
 import { recomputeReadiness } from "@/lib/yoxa/recompute-readiness";
+import { applyDesignOptionFeedback } from "@/lib/dna/design-option-feedback";
 import type { Domain } from "@/lib/types/domain";
 
 // Design feedback is a first-class turn, not a database write in isolation
@@ -27,12 +28,13 @@ export async function submitDesignFeedback(
     .eq("id", designOptionId)
     .single();
 
-  await supabase.from("design_option_feedback").insert({
-    design_option_id: designOptionId,
-    sub_element: subElement ?? null,
+  await applyDesignOptionFeedback(supabase, {
+    designOptionId,
+    projectId,
     sentiment,
     comment: comment || null,
-    created_by: user.id,
+    subElement: subElement ?? null,
+    createdBy: user.id,
   });
 
   const feedbackMessage = subElement
@@ -78,20 +80,6 @@ export async function submitDesignFeedback(
       await recomputeReadiness(supabase, projectId, domain as Domain);
     }
   }
-
-  if (sentiment === "dislike") {
-    await supabase
-      .from("design_options")
-      .update({ status: "rejected" })
-      .eq("id", designOptionId)
-      .eq("status", "proposed");
-  }
-
-  await supabase.from("events").insert({
-    project_id: projectId,
-    event_type: "feedback_recorded",
-    activity_summary: `You gave feedback on "${option?.label}": ${sentiment}${comment ? ` — ${comment}` : ""}`,
-  });
 
   revalidatePath("/design");
   revalidatePath("/activity");
