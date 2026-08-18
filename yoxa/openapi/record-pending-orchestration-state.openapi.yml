@@ -55,7 +55,19 @@ paths:
                       id: { type: string, format: uuid }
                       project_id: { type: string, format: uuid }
                       event_type: { type: string }
-                      payload: { type: object }
+                      payload:
+                        type: object
+                        properties:
+                          source: { type: string }
+                          escalationLevel: { type: [string, "null"] }
+                          pendingActions:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                description: { type: string }
+                                owner: { type: string }
+                                dueContext: { type: string }
                       activity_summary: { type: [string, "null"] }
                       created_at: { type: string, format: date-time }
         "400":
