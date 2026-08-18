@@ -23,7 +23,9 @@ export async function POST(
 
   const { projectId } = await params;
   const supabase = createServiceClient();
-  const body = await request.json();
+  // Body is optional on this endpoint (every field defaults) — a caller
+  // that sends no body at all, or an empty one, must not 500.
+  const body = await request.json().catch(() => ({}));
 
   const { data: project, error: projectError } = await supabase
     .from("projects")
