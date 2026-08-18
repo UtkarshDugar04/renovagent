@@ -43,11 +43,20 @@ function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
 }
 
 export function useLiveTranscription(active: boolean, onFinalSegment: (text: string) => void) {
-  const [isSupported] = useState(() => getSpeechRecognitionCtor() !== null);
+  // Must start false on both server and client's first render — reading
+  // window.SpeechRecognition synchronously here would give the server
+  // `false` and a Chromium client `true` on the very first paint, which is
+  // a hydration mismatch (React error #418). The real value is set in an
+  // effect, after hydration has already reconciled.
+  const [isSupported, setIsSupported] = useState(false);
   const [interimText, setInterimText] = useState("");
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const onFinalSegmentRef = useRef(onFinalSegment);
   onFinalSegmentRef.current = onFinalSegment;
+
+  useEffect(() => {
+    setIsSupported(getSpeechRecognitionCtor() !== null);
+  }, []);
 
   const stop = useCallback(() => {
     recognitionRef.current?.stop();
