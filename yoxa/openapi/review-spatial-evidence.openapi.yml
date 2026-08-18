@@ -1,0 +1,115 @@
+openapi: 3.1.0
+info:
+  title: Review Spatial Evidence
+  version: "1.0.0"
+servers:
+  - url: https://renovagent-five.vercel.app
+security:
+  - clientApiBearer: []
+paths:
+  /api/yoxa/projects/{projectId}/spatial-evidence-review:
+    get:
+      operationId: reviewSpatialEvidence
+      summary: Gather spatial-domain evidence and elements, with unresolved items and open conflicts already flagged, for the agent to compare.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Spatial evidence and derived flags for this project.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [spatialElements, spatialEvidence, unverifiedElements, unresolvedEvidence, openConflicts]
+                properties:
+                  spatialElements:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, element_type, certainty, requires_verification, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        room: { type: [string, "null"] }
+                        element_type: { type: string }
+                        attributes: { type: object }
+                        certainty: { type: string }
+                        requires_verification: { type: boolean }
+                        evidence_ids:
+                          type: array
+                          items: { type: string, format: uuid }
+                        created_at: { type: string, format: date-time }
+                  spatialEvidence:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, evidence_type, statement, status, confidence, authority, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        evidence_type: { type: string }
+                        statement: { type: string }
+                        status:
+                          type: string
+                          enum: [explicit, verified, inferred, assumed, unresolved, conflicted, stale, superseded]
+                        confidence: { type: string, enum: [unknown, low, medium, high] }
+                        authority: { type: string }
+                        source: { type: [string, "null"] }
+                        created_at: { type: string, format: date-time }
+                  unverifiedElements:
+                    type: array
+                    description: Spatial elements flagged requires_verification — pulled out of spatialElements for convenience.
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        room: { type: [string, "null"] }
+                        element_type: { type: string }
+                        attributes: { type: object }
+                        certainty: { type: string }
+                        requires_verification: { type: boolean }
+                        evidence_ids:
+                          type: array
+                          items: { type: string, format: uuid }
+                        created_at: { type: string, format: date-time }
+                  unresolvedEvidence:
+                    type: array
+                    description: Spatial evidence with status unresolved, assumed, or conflicted — pulled out of spatialEvidence for convenience.
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        evidence_type: { type: string }
+                        statement: { type: string }
+                        status: { type: string }
+                        confidence: { type: string }
+                        authority: { type: string }
+                        source: { type: [string, "null"] }
+                        created_at: { type: string, format: date-time }
+                  openConflicts:
+                    type: array
+                    description: Open conflicts whose affected_domains includes spatial.
+                    items:
+                      type: object
+                      required: [id, evidence_a_id, evidence_b_id, reason, status, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        evidence_a_id: { type: string, format: uuid }
+                        evidence_b_id: { type: string, format: uuid }
+                        reason: { type: string }
+                        affected_domains:
+                          type: array
+                          items: { type: string }
+                        status: { type: string }
+                        created_at: { type: string, format: date-time }
+        "500":
+          description: The read failed.
+          content:
+            application/json:
+              schema: { type: object, required: [error], properties: { error: { type: string } } }
+components:
+  securitySchemes:
+    clientApiBearer:
+      type: http
+      scheme: bearer
