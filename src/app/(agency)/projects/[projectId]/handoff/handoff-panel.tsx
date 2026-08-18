@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { FileText, Send, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { createHandoffBrief, approveAndSendHandoff } from "./actions";
 
 interface HandoffRecord {
@@ -23,63 +28,72 @@ export function HandoffPanel({
 
   return (
     <div className="space-y-4">
-      <button
+      <Button
         disabled={isPending}
         onClick={() =>
           startTransition(async () => {
             await createHandoffBrief(projectId);
           })
         }
-        className="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+        className="glow-primary"
       >
+        <Sparkles className="h-4 w-4" />
         Generate handoff brief
-      </button>
+      </Button>
 
       {records.length === 0 && (
-        <p className="text-sm text-stone-400">No handoff brief generated yet.</p>
+        <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
+          <FileText className="h-5 w-5 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">No handoff brief generated yet.</p>
+        </div>
       )}
 
       {records.map((r) => (
-        <div key={r.id} className="rounded-lg border border-stone-200 bg-white p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <span
-              className={`rounded px-2 py-0.5 text-xs ${
-                r.status === "sent" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-              }`}
-            >
-              {r.status}
-            </span>
-            <span className="text-xs text-stone-400">{new Date(r.created_at).toLocaleString()}</span>
-          </div>
-          <pre className="mb-3 whitespace-pre-wrap rounded bg-stone-50 p-3 text-xs text-stone-700">
-            {r.brief}
-          </pre>
-
-          {r.status === "pending_approval" && (
-            <div className="flex gap-2">
-              <input
-                value={sendTo[r.id] ?? ""}
-                onChange={(e) => setSendTo((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                placeholder="Send to (email)"
-                className="flex-1 rounded-md border border-stone-300 px-2 py-1.5 text-sm outline-none focus:border-stone-500"
-              />
-              <button
-                disabled={!sendTo[r.id]?.trim() || isPending}
-                onClick={() =>
-                  startTransition(async () => {
-                    await approveAndSendHandoff(r.id, projectId, sendTo[r.id].trim());
-                  })
-                }
-                className="rounded-md bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+        <Card key={r.id} className="glass border-0">
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Badge
+                className={`text-xs font-normal ${
+                  r.status === "sent" ? "bg-accent/15 text-accent" : "bg-primary/10 text-primary"
+                }`}
               >
-                Approve & mark sent
-              </button>
+                {r.status}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {new Date(r.created_at).toLocaleString()}
+              </span>
             </div>
-          )}
-          {r.status === "sent" && (
-            <p className="text-xs text-stone-500">Sent to {r.email_sent_to}</p>
-          )}
-        </div>
+            <pre className="whitespace-pre-wrap rounded-lg bg-black/30 p-3 font-mono text-xs text-foreground/80">
+              {r.brief}
+            </pre>
+
+            {r.status === "pending_approval" && (
+              <div className="flex gap-2">
+                <Input
+                  value={sendTo[r.id] ?? ""}
+                  onChange={(e) => setSendTo((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                  placeholder="Send to (email)"
+                  className="h-8 flex-1 text-sm"
+                />
+                <Button
+                  size="sm"
+                  disabled={!sendTo[r.id]?.trim() || isPending}
+                  onClick={() =>
+                    startTransition(async () => {
+                      await approveAndSendHandoff(r.id, projectId, sendTo[r.id].trim());
+                    })
+                  }
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Approve & mark sent
+                </Button>
+              </div>
+            )}
+            {r.status === "sent" && (
+              <p className="text-xs text-muted-foreground">Sent to {r.email_sent_to}</p>
+            )}
+          </CardContent>
+        </Card>
       ))}
     </div>
   );

@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { FolderOpen, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default async function ProjectListPage() {
   const supabase = await createClient();
@@ -44,40 +47,48 @@ export default async function ProjectListPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-semibold text-stone-900">Projects</h1>
+      <h1 className="text-lg font-semibold tracking-tight">Projects</h1>
 
       {(!projects || projects.length === 0) && (
-        <p className="text-sm text-stone-400">No projects yet.</p>
+        <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
+          <FolderOpen className="h-5 w-5 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">No projects yet.</p>
+        </div>
       )}
 
-      <div className="divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
+      <div className="space-y-2">
         {(projects ?? []).map((p) => {
           const escalationCount = countFor(openEscalations, p.id);
           const questionCount = countFor(openQuestions, p.id);
 
           return (
-            <Link
-              key={p.id}
-              href={`/projects/${p.id}/overview`}
-              className="flex items-center justify-between px-4 py-3 hover:bg-stone-50"
-            >
-              <div>
-                <p className="text-sm font-medium text-stone-900">{p.name}</p>
-                <p className="text-xs text-stone-500">{p.scope_summary ?? "No summary yet"}</p>
-              </div>
-              <div className="flex items-center gap-3 text-xs">
-                <span className="text-stone-400">{readinessSummary(p.id)}</span>
-                {questionCount > 0 && (
-                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
-                    {questionCount} open
-                  </span>
-                )}
-                {escalationCount > 0 && (
-                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-red-700">
-                    {escalationCount} escalation{escalationCount > 1 ? "s" : ""}
-                  </span>
-                )}
-              </div>
+            <Link key={p.id} href={`/projects/${p.id}/overview`}>
+              <Card className="glass border-0 transition-colors hover:bg-white/5">
+                <CardContent className="flex items-center justify-between px-4 py-3.5">
+                  <div>
+                    <p className="text-sm font-medium">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {p.scope_summary ?? "No summary yet"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {readinessSummary(p.id)}
+                    </span>
+                    {questionCount > 0 && (
+                      <Badge className="bg-primary/10 text-xs text-primary">
+                        {questionCount} open
+                      </Badge>
+                    )}
+                    {escalationCount > 0 && (
+                      <Badge className="bg-destructive/10 text-xs text-destructive">
+                        {escalationCount} escalation{escalationCount > 1 ? "s" : ""}
+                      </Badge>
+                    )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
             </Link>
           );
         })}

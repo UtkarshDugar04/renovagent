@@ -1,9 +1,12 @@
+import { LayoutGrid, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const STATUS_STYLE: Record<string, string> = {
-  proposed: "bg-amber-50 text-amber-700",
-  validated: "bg-emerald-50 text-emerald-700",
-  rejected: "bg-red-50 text-red-700",
+  proposed: "bg-primary/10 text-primary",
+  validated: "bg-accent/15 text-accent",
+  rejected: "bg-destructive/10 text-destructive",
 };
 
 export default async function DesignReviewPage({
@@ -35,7 +38,12 @@ export default async function DesignReviewPage({
   }
 
   if (!options || options.length === 0) {
-    return <p className="text-sm text-stone-400">No design options generated yet.</p>;
+    return (
+      <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
+        <LayoutGrid className="h-5 w-5 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">No design options generated yet.</p>
+      </div>
+    );
   }
 
   return (
@@ -43,46 +51,53 @@ export default async function DesignReviewPage({
       {options.map((o) => {
         const optionValidations = validationsByTarget.get(o.id) ?? [];
         return (
-          <div key={o.id} className="rounded-lg border border-stone-200 bg-white p-4">
-            <div className="mb-1 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-stone-900">{o.label}</h3>
-              <div className="flex items-center gap-2">
-                <span className={`rounded px-2 py-0.5 text-xs ${STATUS_STYLE[o.status]}`}>{o.status}</span>
-                {!o.visible_to_homeowner && (
-                  <span className="rounded bg-stone-100 px-2 py-0.5 text-xs text-stone-500">
-                    hidden from homeowner
-                  </span>
-                )}
+          <Card key={o.id} className="glass border-0">
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-base">{o.label}</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Badge className={`text-xs font-normal ${STATUS_STYLE[o.status]}`}>
+                    {o.status}
+                  </Badge>
+                  {!o.visible_to_homeowner && (
+                    <Badge variant="secondary" className="gap-1 text-xs font-normal">
+                      <EyeOff className="h-3 w-3" />
+                      hidden from homeowner
+                    </Badge>
+                  )}
+                </div>
               </div>
-            </div>
-            <p className="mb-2 text-xs text-stone-600">{o.rationale}</p>
-            <p className="mb-2 text-xs text-stone-400">
-              Sourcing: {o.sourcing_status.replace(/_/g, " ")}
-            </p>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-sm text-muted-foreground">{o.rationale}</p>
+              <p className="text-xs text-muted-foreground/70">
+                Sourcing: {o.sourcing_status.replace(/_/g, " ")}
+              </p>
 
-            {optionValidations.length > 0 && (
-              <div className="mt-2 space-y-1 border-t border-stone-100 pt-2">
-                <p className="text-xs font-medium text-stone-600">Validation history</p>
-                {optionValidations.map((v) => (
-                  <div key={v!.id} className="text-xs text-stone-500">
-                    <span className={v!.result === "pass" ? "text-emerald-600" : "text-red-600"}>
-                      {v!.result}
-                    </span>
-                    {v!.human_decision_required && (
-                      <span className="ml-1 text-blue-600">— human decision required</span>
-                    )}
-                    {Array.isArray(v!.failed_criteria) && v!.failed_criteria.length > 0 && (
-                      <ul className="ml-3 list-disc text-red-500">
-                        {(v!.failed_criteria as { criterion: string }[]).map((f, i) => (
-                          <li key={i}>{f.criterion}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+              {optionValidations.length > 0 && (
+                <div className="space-y-1 border-t border-white/10 pt-2">
+                  <p className="text-xs font-medium text-foreground/80">Validation history</p>
+                  {optionValidations.map((v) => (
+                    <div key={v!.id} className="text-xs text-muted-foreground">
+                      <span className={v!.result === "pass" ? "text-accent" : "text-destructive"}>
+                        {v!.result}
+                      </span>
+                      {v!.human_decision_required && (
+                        <span className="ml-1 text-primary">— human decision required</span>
+                      )}
+                      {Array.isArray(v!.failed_criteria) && v!.failed_criteria.length > 0 && (
+                        <ul className="ml-3 list-disc text-destructive/80">
+                          {(v!.failed_criteria as { criterion: string }[]).map((f, i) => (
+                            <li key={i}>{f.criterion}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         );
       })}
     </div>

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { logout } from "@/app/auth/login/actions";
+import { AgencyShell } from "./agency-shell";
 
 export default async function AgencyLayout({ children }: LayoutProps<"/">) {
   const supabase = await createClient();
@@ -19,21 +18,6 @@ export default async function AgencyLayout({ children }: LayoutProps<"/">) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-stone-50">
-      <header className="border-b border-stone-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link href="/projects" className="text-sm font-semibold text-stone-900">
-            Renovagent — Agency
-          </Link>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-stone-400">{profile.full_name}</span>
-            <form action={logout}>
-              <button className="text-xs text-stone-400 hover:text-stone-700">Log out</button>
-            </form>
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
-    </div>
+    <AgencyShell userName={profile.full_name ?? user.email ?? "Agency"}>{children}</AgencyShell>
   );
 }

@@ -1,30 +1,40 @@
+import { Users, Home, Palette, Wallet, ShieldAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { Domain } from "@/lib/types/domain";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-const DOMAIN_LABELS: Record<Domain, string> = {
-  family: "Family",
-  spatial: "Spatial",
-  preference: "Preference",
-  budget: "Budget",
-  constraint: "Constraint",
+const DOMAIN_META: Record<Domain, { label: string; icon: React.ElementType }> = {
+  family: { label: "Family", icon: Users },
+  spatial: { label: "Spatial", icon: Home },
+  preference: { label: "Preference", icon: Palette },
+  budget: { label: "Budget", icon: Wallet },
+  constraint: { label: "Constraint", icon: ShieldAlert },
 };
 
 const STATUS_STYLE: Record<string, string> = {
-  explicit: "bg-stone-100 text-stone-700",
-  verified: "bg-emerald-100 text-emerald-800",
-  inferred: "bg-blue-50 text-blue-700",
-  assumed: "bg-amber-50 text-amber-700",
-  unresolved: "bg-stone-100 text-stone-500",
-  conflicted: "bg-red-100 text-red-800",
-  stale: "bg-stone-100 text-stone-400 line-through",
-  superseded: "bg-stone-100 text-stone-400 line-through",
+  explicit: "bg-muted text-muted-foreground",
+  verified: "bg-accent/15 text-accent",
+  inferred: "bg-primary/10 text-primary",
+  assumed: "bg-secondary text-secondary-foreground",
+  unresolved: "bg-muted text-muted-foreground/70",
+  conflicted: "bg-destructive/15 text-destructive",
+  stale: "bg-muted text-muted-foreground/50 line-through",
+  superseded: "bg-muted text-muted-foreground/50 line-through",
 };
 
 const CONFIDENCE_DOT: Record<string, string> = {
-  unknown: "bg-stone-300",
-  low: "bg-amber-300",
-  medium: "bg-amber-500",
-  high: "bg-emerald-500",
+  unknown: "bg-muted-foreground/40",
+  low: "bg-accent/50",
+  medium: "bg-accent/80",
+  high: "bg-accent glow-accent",
 };
 
 export default async function ProjectDnaPage({
@@ -64,116 +74,132 @@ export default async function ProjectDnaPage({
     <div className="space-y-8">
       {domains.map((domain) => {
         const items = (evidence ?? []).filter((e) => e.domain === domain);
+        const Icon = DOMAIN_META[domain].icon;
         return (
           <section key={domain}>
-            <h2 className="mb-2 text-sm font-semibold text-stone-700">
-              {DOMAIN_LABELS[domain]} ({items.length})
+            <h2 className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground/90">
+              <Icon className="h-3.5 w-3.5 text-primary" />
+              {DOMAIN_META[domain].label} ({items.length})
             </h2>
             {items.length === 0 ? (
-              <p className="text-xs text-stone-400">No evidence yet.</p>
+              <p className="text-xs text-muted-foreground">No evidence yet.</p>
             ) : (
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="text-stone-400">
-                    <th className="pb-1 pr-2 font-medium">Statement</th>
-                    <th className="pb-1 pr-2 font-medium">Type</th>
-                    <th className="pb-1 pr-2 font-medium">Status</th>
-                    <th className="pb-1 pr-2 font-medium">Confidence</th>
-                    <th className="pb-1 pr-2 font-medium">Authority</th>
-                    <th className="pb-1 font-medium">Source</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((e) => (
-                    <tr key={e.id} className="border-t border-stone-100">
-                      <td className="py-1.5 pr-2 text-stone-800">{e.statement}</td>
-                      <td className="py-1.5 pr-2 text-stone-500">{e.evidence_type}</td>
-                      <td className="py-1.5 pr-2">
-                        <span className={`rounded px-1.5 py-0.5 ${STATUS_STYLE[e.status]}`}>
-                          {e.status}
-                        </span>
-                      </td>
-                      <td className="py-1.5 pr-2">
-                        <span
-                          className={`inline-block h-2 w-2 rounded-full ${CONFIDENCE_DOT[e.confidence]}`}
-                          title={e.confidence}
-                        />
-                      </td>
-                      <td className="py-1.5 pr-2 text-stone-500">{e.authority.replace(/^d[0-4]_/, "")}</td>
-                      <td className="py-1.5 text-stone-400">{e.source ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="glass overflow-hidden rounded-xl border-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-white/10 hover:bg-transparent">
+                      <TableHead>Statement</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Confidence</TableHead>
+                      <TableHead>Authority</TableHead>
+                      <TableHead>Source</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((e) => (
+                      <TableRow key={e.id} className="border-white/5 hover:bg-white/5">
+                        <TableCell className="text-foreground/90">{e.statement}</TableCell>
+                        <TableCell className="text-muted-foreground">{e.evidence_type}</TableCell>
+                        <TableCell>
+                          <Badge className={`text-[10px] font-normal ${STATUS_STYLE[e.status]}`}>
+                            {e.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={`inline-block h-2 w-2 rounded-full ${CONFIDENCE_DOT[e.confidence]}`}
+                            title={e.confidence}
+                          />
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {e.authority.replace(/^d[0-4]_/, "")}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground/70">{e.source ?? "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </section>
         );
       })}
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-stone-700">
+        <h2 className="mb-2 text-sm font-medium text-foreground/90">
           Constraints ({constraints?.length ?? 0})
         </h2>
-        <ul className="space-y-1">
+        <div className="space-y-1">
           {(constraints ?? []).map((c) => (
-            <li key={c.id} className="rounded-md border border-stone-200 bg-white px-2 py-1.5 text-xs">
-              <span className="font-medium text-stone-700">[{c.hardness}]</span> {c.description}{" "}
-              <span className="text-stone-400">— {c.status}</span>
-            </li>
+            <div key={c.id} className="glass rounded-lg px-3 py-2 text-xs">
+              <Badge variant="secondary" className="mr-1.5 text-[10px] font-normal">
+                {c.hardness}
+              </Badge>
+              {c.description} <span className="text-muted-foreground">— {c.status}</span>
+            </div>
           ))}
-          {(constraints?.length ?? 0) === 0 && <p className="text-xs text-stone-400">None yet.</p>}
-        </ul>
+          {(constraints?.length ?? 0) === 0 && (
+            <p className="text-xs text-muted-foreground">None yet.</p>
+          )}
+        </div>
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-stone-700">
+        <h2 className="mb-2 text-sm font-medium text-foreground/90">
           Budget lines ({budgetLines?.length ?? 0})
         </h2>
-        <ul className="space-y-1">
+        <div className="space-y-1">
           {(budgetLines ?? []).map((b) => (
-            <li key={b.id} className="rounded-md border border-stone-200 bg-white px-2 py-1.5 text-xs text-stone-700">
+            <div key={b.id} className="glass rounded-lg px-3 py-2 text-xs text-foreground/90">
               {b.category} — {b.priority_tier} — probable ₹{b.probable_low ?? "?"}–₹{b.probable_high ?? "?"}
               {b.confirmed && ` — confirmed ₹${b.confirmed}`}
-            </li>
+            </div>
           ))}
-          {(budgetLines?.length ?? 0) === 0 && <p className="text-xs text-stone-400">None yet.</p>}
-        </ul>
+          {(budgetLines?.length ?? 0) === 0 && (
+            <p className="text-xs text-muted-foreground">None yet.</p>
+          )}
+        </div>
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-stone-700">
+        <h2 className="mb-2 text-sm font-medium text-foreground/90">
           Assumptions ({assumptions?.length ?? 0})
         </h2>
-        <ul className="space-y-1">
+        <div className="space-y-1">
           {(assumptions ?? []).map((a) => (
-            <li key={a.id} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+            <div key={a.id} className="glass rounded-lg border-primary/20 px-3 py-2 text-xs">
               {a.statement} {a.verification_required && "— requires verification"}
               {a.impact_if_wrong && (
-                <span className="block text-amber-700">If wrong: {a.impact_if_wrong}</span>
+                <span className="block text-muted-foreground">If wrong: {a.impact_if_wrong}</span>
               )}
-            </li>
+            </div>
           ))}
-          {(assumptions?.length ?? 0) === 0 && <p className="text-xs text-stone-400">None yet.</p>}
-        </ul>
+          {(assumptions?.length ?? 0) === 0 && (
+            <p className="text-xs text-muted-foreground">None yet.</p>
+          )}
+        </div>
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-stone-700">
+        <h2 className="mb-2 text-sm font-medium text-foreground/90">
           Conflicts ({(conflicts ?? []).filter((c) => c.status === "open").length} open)
         </h2>
-        <ul className="space-y-1">
+        <div className="space-y-1">
           {(conflicts ?? []).map((c) => (
-            <li
+            <div
               key={c.id}
-              className={`rounded-md border px-2 py-1.5 text-xs ${
-                c.status === "open" ? "border-red-200 bg-red-50 text-red-800" : "border-stone-200 bg-white text-stone-400"
+              className={`rounded-lg px-3 py-2 text-xs ${
+                c.status === "open"
+                  ? "border border-destructive/30 bg-destructive/10 text-destructive"
+                  : "glass text-muted-foreground"
               }`}
             >
               {c.reason} — {c.status}
-            </li>
+            </div>
           ))}
-          {(conflicts?.length ?? 0) === 0 && <p className="text-xs text-stone-400">None.</p>}
-        </ul>
+          {(conflicts?.length ?? 0) === 0 && <p className="text-xs text-muted-foreground">None.</p>}
+        </div>
       </section>
     </div>
   );

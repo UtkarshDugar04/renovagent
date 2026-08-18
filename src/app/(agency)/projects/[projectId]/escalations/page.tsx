@@ -1,3 +1,4 @@
+import { ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { EscalationResolutionForm } from "@/components/decisions/EscalationResolutionForm";
 
@@ -25,25 +26,30 @@ export default async function EscalationsPage({
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-stone-700">Open ({open?.length ?? 0})</h2>
-        {(open ?? []).length === 0 && <p className="text-xs text-stone-400">Nothing open.</p>}
+        <h2 className="text-sm font-medium text-foreground/90">Open ({open?.length ?? 0})</h2>
+        {(open ?? []).length === 0 && (
+          <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-8 text-center">
+            <ShieldCheck className="h-5 w-5 text-accent" />
+            <p className="text-xs text-muted-foreground">Nothing open.</p>
+          </div>
+        )}
         {(open ?? []).map((e) => (
           <EscalationResolutionForm key={e.id} escalation={e} projectId={projectId} />
         ))}
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-stone-700">
+        <h2 className="mb-2 text-sm font-medium text-foreground/90">
           Resolved ({resolved?.length ?? 0})
         </h2>
-        <ul className="space-y-1">
+        <div className="space-y-1">
           {(resolved ?? []).map((e) => (
-            <li key={e.id} className="rounded-md border border-stone-200 bg-white px-2 py-1.5 text-xs">
-              <span className="text-stone-500">{e.question ?? e.trigger}</span>
-              <span className="ml-2 text-emerald-700">→ {e.resolution}</span>
-            </li>
+            <div key={e.id} className="glass rounded-lg px-3 py-2 text-xs">
+              <span className="text-muted-foreground">{e.question ?? e.trigger}</span>
+              <span className="ml-2 text-accent">→ {e.resolution}</span>
+            </div>
           ))}
-        </ul>
+        </div>
       </section>
     </div>
   );
