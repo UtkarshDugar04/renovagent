@@ -1,0 +1,66 @@
+openapi: 3.1.0
+info:
+  title: Generate Role-based Handoff Brief
+  version: "1.0.0"
+servers:
+  - url: https://renovagent-five.vercel.app
+security:
+  - clientApiBearer: []
+paths:
+  /api/yoxa/projects/{projectId}/handoff-brief:
+    post:
+      operationId: generateRoleHandoffBrief
+      summary: Store a role-appropriate handoff brief the agent has composed, for human review and approval before any delivery.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [briefText]
+              properties:
+                recipientRole:
+                  type: string
+                  description: Who this brief is written for, e.g. professional, contractor, architect. Defaults to "professional".
+                briefText:
+                  type: string
+                  description: The full composed brief — context, approved decisions, recommendations, unresolved questions, evidence and provenance, assumptions, risks, dependencies, budget implications, verification requirements, and next actions with owners. Never label anything in it as approved, verified, quoted, or legally permitted unless it genuinely is.
+      responses:
+        "201":
+          description: The brief was stored for human review.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [handoffRecord, artifactReference]
+                properties:
+                  handoffRecord:
+                    type: object
+                    required: [id, project_id, brief, status, created_at]
+                    properties:
+                      id: { type: string, format: uuid }
+                      project_id: { type: string, format: uuid }
+                      brief: { type: string }
+                      email_content: { type: [string, "null"] }
+                      email_sent_to: { type: [string, "null"] }
+                      approved_by: { type: [string, "null"], format: uuid }
+                      status: { type: string }
+                      created_at: { type: string, format: date-time }
+                  artifactReference:
+                    type: string
+                    description: Link to the in-app screen where a human reviews and approves this brief before anything is sent.
+        "400":
+          description: briefText was missing.
+          content:
+            application/json:
+              schema: { type: object, required: [error], properties: { error: { type: string } } }
+components:
+  securitySchemes:
+    clientApiBearer:
+      type: http
+      scheme: bearer
