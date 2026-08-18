@@ -49,6 +49,11 @@ export function useLiveTranscription(active: boolean, onFinalSegment: (text: str
   // a hydration mismatch (React error #418). The real value is set in an
   // effect, after hydration has already reconciled.
   const [isSupported, setIsSupported] = useState(false);
+  // Distinguishes "haven't checked yet" from "checked, unsupported" — a
+  // caller deciding whether to fall back to a different transcription
+  // strategy needs to wait for the real answer, not react to the
+  // hydration-safe `false` default.
+  const [checked, setChecked] = useState(false);
   const [interimText, setInterimText] = useState("");
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const onFinalSegmentRef = useRef(onFinalSegment);
@@ -56,6 +61,7 @@ export function useLiveTranscription(active: boolean, onFinalSegment: (text: str
 
   useEffect(() => {
     setIsSupported(getSpeechRecognitionCtor() !== null);
+    setChecked(true);
   }, []);
 
   const stop = useCallback(() => {
@@ -116,5 +122,5 @@ export function useLiveTranscription(active: boolean, onFinalSegment: (text: str
     };
   }, [active, isSupported, stop]);
 
-  return { isSupported, interimText };
+  return { isSupported, checked, interimText };
 }

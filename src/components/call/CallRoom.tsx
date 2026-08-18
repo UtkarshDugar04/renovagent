@@ -18,6 +18,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { createClient } from "@/lib/supabase/client";
 import { useCallSession } from "@/lib/webrtc/useCallSession";
 import { useLiveTranscription } from "@/lib/webrtc/useLiveTranscription";
+import { useWhisperTranscription } from "@/lib/webrtc/useWhisperTranscription";
 import { joinOrStartCallSession, endCallSession } from "./actions";
 
 interface Message {
@@ -65,10 +66,23 @@ export function CallRoom({
     endCall,
   } = useCallSession(callSessionId, selfId);
 
-  const { isSupported: transcriptionSupported, interimText } = useLiveTranscription(
-    Boolean(localStream),
+  const {
+    isSupported: nativeTranscriptionSupported,
+    checked: nativeTranscriptionChecked,
+    interimText,
+  } = useLiveTranscription(Boolean(localStream), (text) => postSegment(text));
+
+  // Firefox/Safari have no native SpeechRecognition — fall back to an
+  // in-browser Whisper model. Only starts once the native check has
+  // resolved, so it never briefly spins up on Chrome/Edge before that
+  // check flips isSupported to true.
+  const useWhisperFallback = nativeTranscriptionChecked && !nativeTranscriptionSupported;
+  const { modelLoading: whisperModelLoading } = useWhisperTranscription(
+    useWhisperFallback && Boolean(localStream),
+    localStream,
     (text) => postSegment(text)
   );
+  const transcriptionSupported = nativeTranscriptionSupported || useWhisperFallback;
 
   useEffect(() => {
     if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
@@ -232,11 +246,22 @@ export function CallRoom({
           </div>
         </div>
 
-        {!transcriptionSupported && (
+        {nativeTranscriptionChecked && !transcriptionSupported && (
           <Alert className="border-accent/30 bg-accent/10">
             <AlertDescription className="text-xs">
-              Live transcription needs Chrome or Edge — the call itself still works, but Renovagent
-              won&apos;t automatically hear what&apos;s said. Type key points into the feed instead.
+              Live transcription isn&apos;t available in this browser — the call itself still works,
+              but Renovagent won&apos;t automatically hear what&apos;s said. Type key points into the
+              feed instead.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {useWhisperFallback && whisperModelLoading && (
+          <Alert className="border-accent/30 bg-accent/10">
+            <AlertDescription className="text-xs">
+              Loading an in-browser speech model (one-time, a moment on this connection)… Renovagent
+              will start hearing what&apos;s said in a few seconds, transcribed in short chunks rather
+              than live word-by-word.
             </AlertDescription>
           </Alert>
         )}
