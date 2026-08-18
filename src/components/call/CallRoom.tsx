@@ -59,6 +59,7 @@ export function CallRoom({
     remoteStream,
     micEnabled,
     cameraEnabled,
+    mediaError,
     toggleMic,
     toggleCamera,
     endCall,
@@ -206,7 +207,7 @@ export function CallRoom({
           <div className="flex items-center justify-between gap-2 border-t border-white/10 p-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <StatusDot state={connectionState} />
-              {statusLabel(connectionState)}
+              {mediaError ?? statusLabel(connectionState)}
             </div>
             <div className="flex items-center gap-2">
               {!inCall ? (

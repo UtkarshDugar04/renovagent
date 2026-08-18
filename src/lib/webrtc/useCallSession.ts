@@ -32,6 +32,7 @@ export function useCallSession(callSessionId: string | null, selfId: string) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [micEnabled, setMicEnabled] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(true);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -57,7 +58,30 @@ export function useCallSession(callSessionId: string | null, selfId: string) {
 
     async function start() {
       setConnectionState("waiting");
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      setMediaError(null);
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      } catch {
+        try {
+          // Camera denied/unavailable — still join with audio only rather
+          // than failing the whole call.
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          setMediaError("Camera unavailable — joined with audio only.");
+        } catch (audioErr) {
+          if (!cancelled) {
+            setConnectionState("failed");
+            setMediaError(
+              audioErr instanceof Error && audioErr.name === "NotAllowedError"
+                ? "Microphone and camera access was blocked — allow access in your browser and try again."
+                : "Couldn't access a microphone or camera on this device."
+            );
+          }
+          return;
+        }
+      }
+
       if (cancelled) {
         stream.getTracks().forEach((t) => t.stop());
         return;
@@ -190,5 +214,5 @@ export function useCallSession(callSessionId: string | null, selfId: string) {
     setRemoteStream(null);
   }, [teardown]);
 
-  return { connectionState, localStream, remoteStream, micEnabled, cameraEnabled, toggleMic, toggleCamera, endCall };
+  return { connectionState, localStream, remoteStream, micEnabled, cameraEnabled, mediaError, toggleMic, toggleCamera, endCall };
 }
