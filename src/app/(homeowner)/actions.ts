@@ -16,24 +16,29 @@ export async function createProject(formData: FormData) {
   const budgetLow = formData.get("budget_low") ? Number(formData.get("budget_low")) : null;
   const budgetHigh = formData.get("budget_high") ? Number(formData.get("budget_high")) : null;
 
-  const { data: project, error: projectError } = await supabase
-    .from("projects")
-    .insert({
-      name,
-      scope_summary: scopeSummary,
-      budget_comfortable_low: budgetLow,
-      budget_comfortable_high: budgetHigh,
-      created_by: user.id,
-    })
-    .select("id")
-    .single();
+  // Generate the id client-side rather than chaining .select() on the
+  // insert: the projects SELECT policy requires an existing project_members
+  // row, which can't exist yet at the instant of insert — chaining .select()
+  // there causes the RETURNING clause to hit RLS before membership exists.
+  // Knowing the id upfront avoids ever needing to read the row back before
+  // membership is established.
+  const projectId = crypto.randomUUID();
 
-  if (projectError || !project) {
-    return { error: projectError?.message ?? "Couldn't create the project. Try again." };
+  const { error: projectError } = await supabase.from("projects").insert({
+    id: projectId,
+    name,
+    scope_summary: scopeSummary,
+    budget_comfortable_low: budgetLow,
+    budget_comfortable_high: budgetHigh,
+    created_by: user.id,
+  });
+
+  if (projectError) {
+    return { error: projectError.message };
   }
 
   const { error: memberError } = await supabase.from("project_members").insert({
-    project_id: project.id,
+    project_id: projectId,
     user_id: user.id,
     role: "homeowner",
   });
@@ -46,7 +51,7 @@ export async function createProject(formData: FormData) {
   const domains = ["family", "spatial", "preference", "budget", "constraint"] as const;
   await supabase
     .from("readiness")
-    .insert(domains.map((domain) => ({ project_id: project.id, domain, state: "not_started" })));
+    .insert(domains.map((domain) => ({ project_id: projectId, domain, state: "not_started" })));
 
   redirect("/conversation");
 }
