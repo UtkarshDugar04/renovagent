@@ -63,10 +63,10 @@ async function LoginForm({
             </div>
 
             <div className="flex gap-2 pt-2">
-              <Button formAction={login} className="flex-1 glow-primary">
+              <Button type="submit" formAction={login} className="flex-1 glow-primary">
                 Log in
               </Button>
-              <Button formAction={signup} variant="outline" className="flex-1">
+              <Button type="submit" formAction={signup} variant="outline" className="flex-1">
                 Sign up
               </Button>
             </div>
