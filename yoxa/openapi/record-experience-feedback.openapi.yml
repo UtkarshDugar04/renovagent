@@ -9,7 +9,7 @@ security:
 paths:
   /api/yoxa/projects/{projectId}/experience-feedback:
     post:
-      operationId: recordExperienceFeedback
+      operationId: recordExperienceFeedbackV2
       summary: Persist classified human feedback, rejection, and any resulting decision as new evidence.
       parameters:
         - name: projectId
