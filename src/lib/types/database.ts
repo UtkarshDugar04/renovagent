@@ -1240,6 +1240,105 @@ export type Database = {
           },
         ]
       }
+      workflow_runs: {
+        Row: {
+          created_at: string
+          project_id: string
+          workflow_run_id: string
+        }
+        Insert: {
+          created_at?: string
+          project_id: string
+          workflow_run_id: string
+        }
+        Update: {
+          created_at?: string
+          project_id?: string
+          workflow_run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      yoxa_hitl_requests: {
+        Row: {
+          answered_at: string | null
+          answered_by: string | null
+          created_at: string
+          description: string | null
+          event_id: string
+          id: string
+          options: Json
+          override_message: string | null
+          project_id: string
+          selected_option_id: string | null
+          status: string
+          title: string
+          workflow_run_id: string
+          yoxa_request_id: string
+        }
+        Insert: {
+          answered_at?: string | null
+          answered_by?: string | null
+          created_at?: string
+          description?: string | null
+          event_id: string
+          id?: string
+          options?: Json
+          override_message?: string | null
+          project_id: string
+          selected_option_id?: string | null
+          status?: string
+          title: string
+          workflow_run_id: string
+          yoxa_request_id: string
+        }
+        Update: {
+          answered_at?: string | null
+          answered_by?: string | null
+          created_at?: string
+          description?: string | null
+          event_id?: string
+          id?: string
+          options?: Json
+          override_message?: string | null
+          project_id?: string
+          selected_option_id?: string | null
+          status?: string
+          title?: string
+          workflow_run_id?: string
+          yoxa_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "yoxa_hitl_requests_answered_by_fkey"
+            columns: ["answered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "yoxa_hitl_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "yoxa_hitl_requests_workflow_run_id_fkey"
+            columns: ["workflow_run_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_runs"
+            referencedColumns: ["workflow_run_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

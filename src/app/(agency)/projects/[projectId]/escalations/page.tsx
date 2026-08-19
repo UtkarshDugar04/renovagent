@@ -1,6 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { EscalationResolutionForm } from "@/components/decisions/EscalationResolutionForm";
+import { HitlRequestCard, type HitlOption } from "@/components/decisions/HitlRequestCard";
 
 export default async function EscalationsPage({
   params,
@@ -8,7 +9,7 @@ export default async function EscalationsPage({
   const { projectId } = await params;
   const supabase = await createClient();
 
-  const [{ data: open }, { data: resolved }] = await Promise.all([
+  const [{ data: open }, { data: resolved }, { data: hitlRequests }] = await Promise.all([
     supabase
       .from("escalations")
       .select("id, trigger, question, required_authority, severity")
@@ -21,10 +22,36 @@ export default async function EscalationsPage({
       .eq("project_id", projectId)
       .eq("status", "resolved")
       .order("resolved_at", { ascending: false }),
+    supabase
+      .from("yoxa_hitl_requests")
+      .select("id, title, description, options")
+      .eq("project_id", projectId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false }),
   ]);
 
   return (
     <div className="space-y-6">
+      {(hitlRequests ?? []).length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-foreground/90">
+            Renovagent needs a decision ({hitlRequests?.length ?? 0})
+          </h2>
+          {(hitlRequests ?? []).map((r) => (
+            <HitlRequestCard
+              key={r.id}
+              projectId={projectId}
+              request={{
+                id: r.id,
+                title: r.title,
+                description: r.description,
+                options: Array.isArray(r.options) ? (r.options as unknown as HitlOption[]) : [],
+              }}
+            />
+          ))}
+        </section>
+      )}
+
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-foreground/90">Open ({open?.length ?? 0})</h2>
         {(open ?? []).length === 0 && (

@@ -17,6 +17,7 @@ const PROJECT_SCOPED_TABLES = [
   "approval_requests",
   "events",
   "handoff_records",
+  "yoxa_hitl_requests",
 ] as const;
 
 // Renders nothing. Subscribes to every table a live project view depends
