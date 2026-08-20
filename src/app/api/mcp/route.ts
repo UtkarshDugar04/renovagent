@@ -13,6 +13,8 @@ import {
 import { recordEngineArtifact } from "@/lib/yoxa/tools/record-engine-artifact";
 import { recordPendingOrchestrationState } from "@/lib/yoxa/tools/record-pending-orchestration-state";
 import { recordReadinessAssessment } from "@/lib/yoxa/tools/record-readiness-assessment";
+import { recordProposedDesignPackage } from "@/lib/yoxa/tools/record-proposed-design-package";
+import { calculateBudgetScenarios } from "@/lib/yoxa/tools/calculate-budget-scenarios";
 import { ToolError } from "@/lib/yoxa/tools/errors";
 
 // POST/GET/DELETE /api/mcp
@@ -280,6 +282,65 @@ function buildServer() {
     async ({ projectId, assessments }) => {
       try {
         return textResult(await recordReadinessAssessment(supabase, projectId, { assessments }));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordProposedDesignPackage",
+    {
+      description: "Register proposed (not approved) design options for a project — the Design Agent's option registry against a design round. Never marks anything approved or construction-ready.",
+      inputSchema: {
+        ...projectIdSchema,
+        roundNumber: z.number().int().optional().describe("Existing or new design round number. Omit to start a new round automatically."),
+        options: z
+          .array(
+            z.object({
+              label: z.string(),
+              rationale: z.string(),
+              satisfiesEvidenceIds: z.array(z.string().uuid()).optional(),
+              tradeOffs: z.array(z.object({ gained: z.string(), sacrificed: z.string() })).optional(),
+              costBand: z
+                .object({ low: z.number(), high: z.number(), confidence: confidenceEnum })
+                .nullable()
+                .optional(),
+              sourcingStatus: z.enum(["not_evaluated", "grounded", "indicative", "ungrounded"]).optional(),
+              whatItWouldFeelLike: z.string().optional(),
+              visibleToHomeowner: z.boolean().optional().describe("Defaults to false — hidden from the homeowner until the agency releases it."),
+            })
+          )
+          .min(1),
+      },
+    },
+    async ({ projectId, roundNumber, options }) => {
+      try {
+        return textResult(await recordProposedDesignPackage(supabase, projectId, { roundNumber, options }));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "calculateBudgetScenarios",
+    {
+      description: "A pure, deterministic budget calculation over real budget_lines rows and the project's own ceiling — never an LLM guess at a price. Writes nothing; returns the calculation only.",
+      inputSchema: {
+        ...projectIdSchema,
+        contingencyPercent: z.number().optional().describe("Defaults to 10."),
+        categoryEstimates: z
+          .array(z.object({ category: z.string(), estimated: z.number() }))
+          .optional()
+          .describe("Hypothetical category estimates for this one calculation — not persisted."),
+      },
+    },
+    async ({ projectId, contingencyPercent, categoryEstimates }) => {
+      try {
+        return textResult(
+          await calculateBudgetScenarios(supabase, projectId, { contingencyPercent, categoryEstimates })
+        );
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
       }
