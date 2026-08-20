@@ -5,12 +5,14 @@
 // Yoxa must read that line and use it for every tool call in the run;
 // see the RENOVAGENT_CONTEXT format below.
 //
-// Fire-and-forget from the caller's perspective: Yoxa runs asynchronously
-// and there is no response webhook (confirmed in Release → Integrate —
-// Human Approvals are Yoxa-managed and there's no callback/webhook
-// setting anywhere in that checklist). Everything the workflow produces
-// comes back through the /api/yoxa/** tool calls it makes into this app
-// while it runs, not through this trigger call's response.
+// Fire-and-forget from the caller's perspective: this call's response only
+// confirms Yoxa accepted the run (or didn't) — it does not carry the run's
+// output. Everything the workflow produces comes back through the
+// /api/yoxa/** tool calls it makes into this app while it runs, plus the
+// deployed HITL webhook (/api/yoxa/hitl) for anything needing a human
+// decision. The caller is responsible for writing the returned
+// workflowRunId into `workflow_runs` — see send-to-yoxa.ts — since that's
+// what lets the HITL webhook resolve an incoming run back to its project.
 
 export interface TriggerYoxaAttachment {
   filename: string;
@@ -54,7 +56,13 @@ export async function triggerYoxaWorkflow(input: TriggerYoxaInput): Promise<Trig
     form.append("file", new Blob(["(no attachment)"], { type: "text/plain" }), "no-attachment.txt");
   }
 
-  const idempotencyKey = crypto.randomUUID();
+  // Stable per project, not a fresh UUID per call: a project fires this
+  // trigger at most once by design, so reusing projectId (already a valid
+  // UUID) as the idempotency key means a retry after an ambiguous network
+  // failure (request sent, response lost) can't cause a real double-run at
+  // Yoxa's end — a fresh key per attempt would defeat the whole point of
+  // the header.
+  const idempotencyKey = input.projectId;
 
   const response = await fetch(triggerUrl, {
     method: "POST",

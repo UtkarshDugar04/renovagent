@@ -158,6 +158,7 @@ export type Database = {
           label: string | null
           mime_type: string | null
           project_id: string
+          status: string
           storage_path: string
           uploaded_by: string | null
         }
@@ -167,6 +168,7 @@ export type Database = {
           label?: string | null
           mime_type?: string | null
           project_id: string
+          status?: string
           storage_path: string
           uploaded_by?: string | null
         }
@@ -176,6 +178,7 @@ export type Database = {
           label?: string | null
           mime_type?: string | null
           project_id?: string
+          status?: string
           storage_path?: string
           uploaded_by?: string | null
         }
@@ -1010,6 +1013,7 @@ export type Database = {
           property_address: string | null
           scope_summary: string | null
           updated_at: string
+          yoxa_send_claimed_at: string | null
         }
         Insert: {
           budget_ceiling?: number | null
@@ -1025,6 +1029,7 @@ export type Database = {
           property_address?: string | null
           scope_summary?: string | null
           updated_at?: string
+          yoxa_send_claimed_at?: string | null
         }
         Update: {
           budget_ceiling?: number | null
@@ -1040,6 +1045,7 @@ export type Database = {
           property_address?: string | null
           scope_summary?: string | null
           updated_at?: string
+          yoxa_send_claimed_at?: string | null
         }
         Relationships: [
           {
