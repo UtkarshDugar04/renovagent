@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recomputeReadiness } from "@/lib/yoxa/recompute-readiness";
 import type { Domain, EvidenceType, EvidenceStatus, Confidence, Authority, Severity } from "@/lib/types/domain";
-import type { Json } from "@/lib/types/database";
 import { ToolError } from "./errors";
 
 export interface EvidenceInput {
@@ -41,10 +40,24 @@ export interface BudgetLineInput {
   priorityTier?: string;
 }
 
+// Fixed, named fields rather than an arbitrary key-value object — a
+// free-form record renders in JSON Schema as an open-ended object
+// (additionalProperties), which a number of function-calling providers
+// reject outright. These four cover every real use seen so far (room
+// dimensions, layout style, what an element sits between, free-text notes);
+// extend this list rather than reintroducing a free-form field if a new
+// need shows up.
+export interface SpatialElementAttributes {
+  approxSqm?: number;
+  layout?: string;
+  adjacentRooms?: string[];
+  notes?: string;
+}
+
 export interface SpatialElementInput {
   room?: string;
   elementType: string;
-  attributes?: Json;
+  attributes?: SpatialElementAttributes;
   certainty: Confidence;
   requiresVerification?: boolean;
   evidenceIds?: string[];
@@ -66,7 +79,7 @@ export interface ConflictInput {
 }
 
 export interface UpdateCanonicalRenovationDnaInput {
-  evidence: EvidenceInput[];
+  evidence?: EvidenceInput[];
   newQuestions?: QuestionInput[];
   conflicts?: ConflictInput[];
   householdMembers?: HouseholdMemberInput[];
@@ -75,9 +88,18 @@ export interface UpdateCanonicalRenovationDnaInput {
   spatialElements?: SpatialElementInput[];
 }
 
-// Shared logic behind updateCanonicalRenovationDna — see
-// get-canonical-renovation-dna.ts for why this lives separately from the
-// route handlers that call it.
+// Shared logic behind every DNA-writing MCP tool. Originally exposed as one
+// combined tool (updateCanonicalRenovationDna) with all seven arrays as
+// parameters — that tool's schema turned out to be too large/complex for
+// Yoxa's configured model provider to bind at all (every agent using it
+// failed instantly with model.schema_incompatible, before any real
+// execution). Now exposed as seven focused MCP tools (recordEvidence,
+// recordQuestions, recordConflicts, recordHouseholdMembers,
+// recordConstraints, recordBudgetLines, recordSpatialElements — see
+// src/app/api/mcp/route.ts), each calling this same function with only its
+// one field populated. The REST route still accepts the full combined
+// shape in one call, since PostgREST callers aren't subject to LLM
+// function-calling schema limits.
 export async function updateCanonicalRenovationDna(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
@@ -85,31 +107,48 @@ export async function updateCanonicalRenovationDna(
   input: UpdateCanonicalRenovationDnaInput
 ) {
   const evidenceInputs = input.evidence ?? [];
-  if (evidenceInputs.length === 0) {
-    throw new ToolError(400, "At least one evidence item is required");
+  const newQuestions = input.newQuestions ?? [];
+  const conflictInputs = input.conflicts ?? [];
+  const householdMemberInputs = input.householdMembers ?? [];
+  const constraintInputs = input.constraints ?? [];
+  const budgetLineInputs = input.budgetLines ?? [];
+  const spatialElementInputs = input.spatialElements ?? [];
+
+  const totalItems =
+    evidenceInputs.length +
+    newQuestions.length +
+    conflictInputs.length +
+    householdMemberInputs.length +
+    constraintInputs.length +
+    budgetLineInputs.length +
+    spatialElementInputs.length;
+  if (totalItems === 0) {
+    throw new ToolError(400, "At least one item is required across evidence, newQuestions, conflicts, householdMembers, constraints, budgetLines, or spatialElements");
   }
 
-  const { data: inserted, error: evidenceError } = await supabase
-    .from("evidence")
-    .insert(
-      evidenceInputs.map((e) => ({
-        project_id: projectId,
-        domain: e.domain,
-        evidence_type: e.evidenceType,
-        statement: e.statement,
-        status: e.status ?? "explicit",
-        confidence: e.confidence ?? "unknown",
-        authority: e.authority ?? "d0_agent",
-        source: e.source ?? "yoxa:evidence_curator",
-        contradicts_evidence_id: e.contradictsEvidenceId ?? null,
-        superseded_by_id: e.supersededById ?? null,
-      }))
-    )
-    .select();
+  let inserted: unknown[] = [];
+  if (evidenceInputs.length > 0) {
+    const { data, error } = await supabase
+      .from("evidence")
+      .insert(
+        evidenceInputs.map((e) => ({
+          project_id: projectId,
+          domain: e.domain,
+          evidence_type: e.evidenceType,
+          statement: e.statement,
+          status: e.status ?? "explicit",
+          confidence: e.confidence ?? "unknown",
+          authority: e.authority ?? "d0_agent",
+          source: e.source ?? "yoxa:evidence_curator",
+          contradicts_evidence_id: e.contradictsEvidenceId ?? null,
+          superseded_by_id: e.supersededById ?? null,
+        }))
+      )
+      .select();
+    if (error) throw new ToolError(500, error.message);
+    inserted = data ?? [];
+  }
 
-  if (evidenceError) throw new ToolError(500, evidenceError.message);
-
-  const newQuestions = input.newQuestions ?? [];
   if (newQuestions.length > 0) {
     await supabase.from("questions").insert(
       newQuestions.map((q) => ({
@@ -123,7 +162,6 @@ export async function updateCanonicalRenovationDna(
     );
   }
 
-  const conflictInputs = input.conflicts ?? [];
   if (conflictInputs.length > 0) {
     await supabase.from("conflicts").insert(
       conflictInputs.map((c) => ({
@@ -136,7 +174,6 @@ export async function updateCanonicalRenovationDna(
     );
   }
 
-  const householdMemberInputs = input.householdMembers ?? [];
   let insertedHouseholdMembers: unknown[] = [];
   if (householdMemberInputs.length > 0) {
     const { data, error } = await supabase
@@ -155,7 +192,6 @@ export async function updateCanonicalRenovationDna(
     insertedHouseholdMembers = data ?? [];
   }
 
-  const constraintInputs = input.constraints ?? [];
   let insertedConstraints: unknown[] = [];
   if (constraintInputs.length > 0) {
     const { data, error } = await supabase
@@ -175,7 +211,6 @@ export async function updateCanonicalRenovationDna(
     insertedConstraints = data ?? [];
   }
 
-  const budgetLineInputs = input.budgetLines ?? [];
   let insertedBudgetLines: unknown[] = [];
   if (budgetLineInputs.length > 0) {
     const { data, error } = await supabase
@@ -197,7 +232,6 @@ export async function updateCanonicalRenovationDna(
     insertedBudgetLines = data ?? [];
   }
 
-  const spatialElementInputs = input.spatialElements ?? [];
   let insertedSpatialElements: unknown[] = [];
   if (spatialElementInputs.length > 0) {
     const { data, error } = await supabase
@@ -218,20 +252,23 @@ export async function updateCanonicalRenovationDna(
     insertedSpatialElements = data ?? [];
   }
 
-  const touchedDomains = new Set(evidenceInputs.map((e) => e.domain));
+  const touchedDomains = new Set<Domain>(evidenceInputs.map((e) => e.domain));
+  if (constraintInputs.length > 0) touchedDomains.add("constraint");
+  if (budgetLineInputs.length > 0) touchedDomains.add("budget");
+  if (spatialElementInputs.length > 0) touchedDomains.add("spatial");
   for (const domain of touchedDomains) {
-    await recomputeReadiness(supabase, projectId, domain as Domain);
+    await recomputeReadiness(supabase, projectId, domain);
   }
 
   await supabase.from("events").insert({
     project_id: projectId,
     event_type: "evidence_extracted",
-    payload: { evidence_count: inserted?.length ?? 0, source: "yoxa" },
-    activity_summary: `Renovagent's intelligence captured ${inserted?.length ?? 0} new piece(s) of information.`,
+    payload: { total_item_count: totalItems, source: "yoxa" },
+    activity_summary: `Renovagent's intelligence captured ${totalItems} new piece(s) of information.`,
   });
 
   return {
-    evidence: inserted ?? [],
+    evidence: inserted,
     householdMembers: insertedHouseholdMembers,
     constraints: insertedConstraints,
     budgetLines: insertedBudgetLines,

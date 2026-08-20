@@ -6,10 +6,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireYoxaAuth } from "@/lib/yoxa/inbound-auth";
 import { getCanonicalRenovationDna } from "@/lib/yoxa/tools/get-canonical-renovation-dna";
 import { reviewSpatialEvidence } from "@/lib/yoxa/tools/review-spatial-evidence";
-import {
-  updateCanonicalRenovationDna,
-  type UpdateCanonicalRenovationDnaInput,
-} from "@/lib/yoxa/tools/update-canonical-renovation-dna";
+import { updateCanonicalRenovationDna } from "@/lib/yoxa/tools/update-canonical-renovation-dna";
 import { recordEngineArtifact } from "@/lib/yoxa/tools/record-engine-artifact";
 import { recordPendingOrchestrationState } from "@/lib/yoxa/tools/record-pending-orchestration-state";
 import { recordReadinessAssessment } from "@/lib/yoxa/tools/record-readiness-assessment";
@@ -104,28 +101,52 @@ function buildServer() {
     }
   );
 
+  // Originally one combined tool (evidence + questions + conflicts +
+  // householdMembers + constraints + budgetLines + spatialElements all as
+  // parameters on a single call). That schema was too large/complex for
+  // Yoxa's configured model provider to bind at all — every agent using it
+  // failed instantly with model.schema_incompatible, before any real
+  // execution ever happened. Split into seven focused tools below, each
+  // calling the same shared updateCanonicalRenovationDna function with only
+  // its one field populated — smaller, simpler schemas per call, and each
+  // agent only needs the ones its own writes actually use.
+
+  const evidenceItemSchema = z.object({
+    domain: domainEnum,
+    evidenceType: evidenceTypeEnum,
+    statement: z.string(),
+    status: evidenceStatusEnum.optional(),
+    confidence: confidenceEnum.optional(),
+    authority: authorityEnum.optional(),
+    source: z.string().optional(),
+    contradictsEvidenceId: z.string().uuid().optional(),
+    supersededById: z.string().uuid().optional(),
+  });
+
   server.registerTool(
-    "updateCanonicalRenovationDna",
+    "recordEvidence",
     {
-      description: "Apply a provenance-aware evidence patch to a project's Renovation DNA — new evidence, questions, conflicts, household members, constraints, budget lines, and spatial elements.",
+      description: "Write new evidence to a project's Renovation DNA, each item carrying its own canonical classification (domain, status, confidence, authority). The most commonly used DNA write — used by nearly every agent in this flow.",
       inputSchema: {
         ...projectIdSchema,
-        evidence: z
-          .array(
-            z.object({
-              domain: domainEnum,
-              evidenceType: evidenceTypeEnum,
-              statement: z.string(),
-              status: evidenceStatusEnum.optional(),
-              confidence: confidenceEnum.optional(),
-              authority: authorityEnum.optional(),
-              source: z.string().optional(),
-              contradictsEvidenceId: z.string().uuid().optional(),
-              supersededById: z.string().uuid().optional(),
-            })
-          )
-          .min(1)
-          .describe("New evidence to add, each carrying its own canonical classification."),
+        evidence: z.array(evidenceItemSchema).min(1),
+      },
+    },
+    async ({ projectId, evidence }) => {
+      try {
+        return textResult(await updateCanonicalRenovationDna(supabase, projectId, { evidence }));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordQuestions",
+    {
+      description: "Write new open questions to a project's Renovation DNA — real gaps, each with severity and whether it blocks readiness.",
+      inputSchema: {
+        ...projectIdSchema,
         newQuestions: z
           .array(
             z.object({
@@ -136,7 +157,24 @@ function buildServer() {
               blocksReadiness: z.boolean().optional(),
             })
           )
-          .optional(),
+          .min(1),
+      },
+    },
+    async ({ projectId, newQuestions }) => {
+      try {
+        return textResult(await updateCanonicalRenovationDna(supabase, projectId, { newQuestions }));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordConflicts",
+    {
+      description: "Link two existing evidence items as a conflict — both ids must already exist from a prior recordEvidence call in this same run. Never resolves the conflict, only represents it.",
+      inputSchema: {
+        ...projectIdSchema,
         conflicts: z
           .array(
             z.object({
@@ -146,7 +184,24 @@ function buildServer() {
               affectedDomains: z.array(domainEnum).optional(),
             })
           )
-          .optional(),
+          .min(1),
+      },
+    },
+    async ({ projectId, conflicts }) => {
+      try {
+        return textResult(await updateCanonicalRenovationDna(supabase, projectId, { conflicts }));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordHouseholdMembers",
+    {
+      description: "Write new household members. Only ever sourced from conversational evidence — never inferred from documents.",
+      inputSchema: {
+        ...projectIdSchema,
         householdMembers: z
           .array(
             z.object({
@@ -156,8 +211,24 @@ function buildServer() {
               accessibilityNeeds: z.string().optional(),
             })
           )
-          .optional()
-          .describe("Only ever sourced from conversational evidence — never inferred from documents."),
+          .min(1),
+      },
+    },
+    async ({ projectId, householdMembers }) => {
+      try {
+        return textResult(await updateCanonicalRenovationDna(supabase, projectId, { householdMembers }));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordConstraints",
+    {
+      description: "Write structured constraint records — category, hardness (hard/soft/negotiable), status, description. Used by Constraint Intelligence for its classified Constraint Framework.",
+      inputSchema: {
+        ...projectIdSchema,
         constraints: z
           .array(
             z.object({
@@ -168,7 +239,24 @@ function buildServer() {
               evidenceIds: z.array(z.string().uuid()).optional(),
             })
           )
-          .optional(),
+          .min(1),
+      },
+    },
+    async ({ projectId, constraints }) => {
+      try {
+        return textResult(await updateCanonicalRenovationDna(supabase, projectId, { constraints }));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordBudgetLines",
+    {
+      description: "Write structured per-category budget lines — probable range, priority tier. Used by Budget Intelligence for its allocation model.",
+      inputSchema: {
+        ...projectIdSchema,
         budgetLines: z
           .array(
             z.object({
@@ -181,30 +269,48 @@ function buildServer() {
               priorityTier: z.string().optional(),
             })
           )
-          .optional(),
+          .min(1),
+      },
+    },
+    async ({ projectId, budgetLines }) => {
+      try {
+        return textResult(await updateCanonicalRenovationDna(supabase, projectId, { budgetLines }));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordSpatialElements",
+    {
+      description: "Write structured spatial elements — room, type, fixed named attributes (approxSqm, layout, adjacentRooms, notes — not a free-form object), certainty, requiresVerification. Used by Spatial Intelligence for its Spatial Model.",
+      inputSchema: {
+        ...projectIdSchema,
         spatialElements: z
           .array(
             z.object({
               room: z.string().optional(),
               elementType: z.string(),
-              attributes: z.record(z.string(), z.unknown()).optional(),
+              attributes: z
+                .object({
+                  approxSqm: z.number().optional(),
+                  layout: z.string().optional(),
+                  adjacentRooms: z.array(z.string()).optional(),
+                  notes: z.string().optional(),
+                })
+                .optional(),
               certainty: confidenceEnum,
               requiresVerification: z.boolean().optional(),
               evidenceIds: z.array(z.string().uuid()).optional(),
             })
           )
-          .optional(),
+          .min(1),
       },
     },
-    async ({ projectId, ...input }) => {
+    async ({ projectId, spatialElements }) => {
       try {
-        return textResult(
-          await updateCanonicalRenovationDna(
-            supabase,
-            projectId,
-            input as UpdateCanonicalRenovationDnaInput
-          )
-        );
+        return textResult(await updateCanonicalRenovationDna(supabase, projectId, { spatialElements }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
       }
