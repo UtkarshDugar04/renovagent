@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const { projectId } = await request.json();
+  const { projectId, fileBase64, filename } = await request.json();
   if (!projectId) {
     return NextResponse.json({ error: "projectId required" }, { status: 400 });
   }
@@ -23,6 +23,12 @@ export async function POST(request: NextRequest) {
     projectId,
     senderRole: "agency",
     messageText: "Diagnostic trigger fired from the Vercel deployment itself.",
+    attachment: fileBase64
+      ? {
+          filename: filename ?? "attachment.pdf",
+          content: new Blob([Buffer.from(fileBase64, "base64")], { type: "application/pdf" }),
+        }
+      : undefined,
   });
 
   return NextResponse.json(result);
