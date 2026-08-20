@@ -142,6 +142,24 @@ function buildServer() {
   );
 
   server.registerTool(
+    "ingestConversationBrief",
+    {
+      description: "The mandatory first call after conversation_brief_submitted fires. Parses the Gemini Conversation Agent's end-of-call markdown brief into classified evidence across family, preference (verbal), budget, and constraint (never spatial — spatial evidence only ever comes from document upload processing, not this brief). Same write path as recordEvidence; this is the named entry point Evidence Curator must call before any other agent reads the Renovation DNA in this run.",
+      inputSchema: {
+        ...projectIdSchema,
+        evidence: z.array(evidenceItemSchema).min(1),
+      },
+    },
+    async ({ projectId, evidence }) => {
+      try {
+        return textResult(await updateCanonicalRenovationDna(supabase, projectId, { evidence }));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
     "recordQuestions",
     {
       description: "Write new open questions to a project's Renovation DNA — real gaps, each with severity and whether it blocks readiness.",
