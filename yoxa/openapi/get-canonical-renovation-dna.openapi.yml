@@ -41,6 +41,7 @@ paths:
                   - spatialElements
                   - designRounds
                   - designOptions
+                  - designOptionFeedback
                 properties:
                   project:
                     type: object
@@ -270,6 +271,18 @@ paths:
                         status: { type: string, enum: [proposed, validated, rejected] }
                         visible_to_homeowner: { type: boolean }
                         what_it_would_feel_like: { type: [string, "null"] }
+                        created_at: { type: string, format: date-time }
+                  designOptionFeedback:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, design_option_id, sentiment, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        design_option_id: { type: string, format: uuid }
+                        sentiment: { type: string, enum: [like, dislike, neutral] }
+                        comment: { type: [string, "null"] }
+                        sub_element: { type: [string, "null"] }
                         created_at: { type: string, format: date-time }
         "404":
           description: Project not found.

@@ -32,6 +32,7 @@ export async function getCanonicalRenovationDna(supabase: SupabaseClient<any>, p
     { data: spatialElements },
     { data: designRounds },
     { data: designOptions },
+    { data: designOptionFeedback },
   ] = await Promise.all([
     supabase
       .from("household_members")
@@ -89,6 +90,13 @@ export async function getCanonicalRenovationDna(supabase: SupabaseClient<any>, p
       )
       .eq("project_id", projectId)
       .order("created_at", { ascending: true }),
+    // design_option_feedback has no project_id column of its own — filtered
+    // via an inner join through design_options, its only link to a project.
+    supabase
+      .from("design_option_feedback")
+      .select("id, design_option_id, sentiment, comment, sub_element, created_at, design_options!inner(project_id)")
+      .eq("design_options.project_id", projectId)
+      .order("created_at", { ascending: true }),
   ]);
 
   return {
@@ -106,5 +114,10 @@ export async function getCanonicalRenovationDna(supabase: SupabaseClient<any>, p
     spatialElements: spatialElements ?? [],
     designRounds: designRounds ?? [],
     designOptions: designOptions ?? [],
+    // Strip the design_options join used only for project-scoping the filter.
+    designOptionFeedback: (designOptionFeedback ?? []).map(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      ({ design_options, ...feedback }: Record<string, unknown>) => feedback
+    ),
   };
 }
