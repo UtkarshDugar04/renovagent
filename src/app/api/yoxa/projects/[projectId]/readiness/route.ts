@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireYoxaAuth } from "@/lib/yoxa/inbound-auth";
-import type { Domain, ReadinessState } from "@/lib/types/domain";
-
-interface ReadinessInput {
-  domain: Domain;
-  state: ReadinessState;
-  reason?: string;
-}
+import {
+  recordReadinessAssessment,
+  type RecordReadinessAssessmentInput,
+} from "@/lib/yoxa/tools/record-readiness-assessment";
+import { ToolError } from "@/lib/yoxa/tools/errors";
 
 // POST /api/yoxa/projects/:projectId/readiness
-// Backs `record_readiness_assessment`. This is the real Validation and
-// Readiness Agent's gate decision overriding our internal rule-based
-// stub (src/lib/yoxa/recompute-readiness.ts) for whichever domains it
-// assesses — once Yoxa is live, this becomes the authoritative source for
-// those domains; the stub still covers any domain Yoxa hasn't assessed
-// yet.
+// Backs `record_readiness_assessment`. This is the real Validation Agent's
+// gate decision, meant to override the internal rule-based stub
+// (src/lib/yoxa/recompute-readiness.ts) for whichever domains it assesses —
+// see that file's own comment. Nothing currently stops a later evidence
+// write from re-triggering the stub and silently overwriting this
+// assessment; flagged, not fixed here.
+//
+// The actual logic lives in
+// src/lib/yoxa/tools/record-readiness-assessment.ts, shared with the MCP
+// server at /api/mcp.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
@@ -25,35 +27,15 @@ export async function POST(
 
   const { projectId } = await params;
   const supabase = createServiceClient();
-  const body = await request.json();
+  const body: RecordReadinessAssessmentInput = await request.json();
 
-  const assessments: ReadinessInput[] = Array.isArray(body?.assessments) ? body.assessments : [];
-  if (assessments.length === 0) {
-    return NextResponse.json({ error: "At least one readiness assessment is required" }, { status: 400 });
+  try {
+    const result = await recordReadinessAssessment(supabase, projectId, body);
+    return NextResponse.json(result);
+  } catch (err) {
+    if (err instanceof ToolError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    throw err;
   }
-
-  const { data, error } = await supabase
-    .from("readiness")
-    .upsert(
-      assessments.map((a) => ({
-        project_id: projectId,
-        domain: a.domain,
-        state: a.state,
-        reason: a.reason ?? null,
-        updated_at: new Date().toISOString(),
-      })),
-      { onConflict: "project_id,domain" }
-    )
-    .select();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  await supabase.from("events").insert({
-    project_id: projectId,
-    event_type: "readiness_assessed",
-    payload: { domains: assessments.map((a) => a.domain), source: "yoxa" },
-    activity_summary: `Renovagent assessed readiness for ${assessments.map((a) => a.domain).join(", ")}.`,
-  });
-
-  return NextResponse.json({ readiness: data ?? [] });
 }

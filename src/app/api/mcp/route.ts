@@ -12,6 +12,7 @@ import {
 } from "@/lib/yoxa/tools/update-canonical-renovation-dna";
 import { recordEngineArtifact } from "@/lib/yoxa/tools/record-engine-artifact";
 import { recordPendingOrchestrationState } from "@/lib/yoxa/tools/record-pending-orchestration-state";
+import { recordReadinessAssessment } from "@/lib/yoxa/tools/record-readiness-assessment";
 import { ToolError } from "@/lib/yoxa/tools/errors";
 
 // POST/GET/DELETE /api/mcp
@@ -48,6 +49,9 @@ const authorityEnum = z.enum(["d0_agent", "d1_recommendation", "d2_homeowner", "
 const severityEnum = z.enum(["e0", "e1", "e2", "e3", "e4", "e5"]);
 const hardnessEnum = z.enum(["hard", "soft", "negotiable"]);
 const constraintStatusEnum = z.enum(["confirmed", "provisional", "unresolved", "requires_verification", "cleared"]);
+const readinessStateEnum = z.enum([
+  "not_started", "discovery_in_progress", "partially_understood", "sufficient_for_validation", "validated",
+]);
 
 const projectIdSchema = { projectId: z.string().uuid().describe("The project's id, exactly as provided in the call context — never guessed.") };
 
@@ -250,6 +254,32 @@ function buildServer() {
             escalationLevel,
           })
         );
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordReadinessAssessment",
+    {
+      description: "Persist a per-domain readiness gate decision for a project — the Validation Agent's real, independent assessment, one entry per domain checked.",
+      inputSchema: {
+        ...projectIdSchema,
+        assessments: z
+          .array(
+            z.object({
+              domain: domainEnum,
+              state: readinessStateEnum,
+              reason: z.string().optional().describe("Free-text explanation, blockers, and accepted uncertainty for this domain's gate decision."),
+            })
+          )
+          .min(1),
+      },
+    },
+    async ({ projectId, assessments }) => {
+      try {
+        return textResult(await recordReadinessAssessment(supabase, projectId, { assessments }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
       }
