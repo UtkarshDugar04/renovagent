@@ -11,6 +11,7 @@ import {
   type UpdateCanonicalRenovationDnaInput,
 } from "@/lib/yoxa/tools/update-canonical-renovation-dna";
 import { recordEngineArtifact } from "@/lib/yoxa/tools/record-engine-artifact";
+import { recordPendingOrchestrationState } from "@/lib/yoxa/tools/record-pending-orchestration-state";
 import { ToolError } from "@/lib/yoxa/tools/errors";
 
 // POST/GET/DELETE /api/mcp
@@ -214,6 +215,40 @@ function buildServer() {
       try {
         return textResult(
           await recordEngineArtifact(supabase, projectId, { engine, artifactType, content })
+        );
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordPendingOrchestrationState",
+    {
+      description: "Log a bounded next-action plan, owners, and re-entry point for a project — Planning & Orchestration's reconciliation summary, shown live in the project's activity feed.",
+      inputSchema: {
+        ...projectIdSchema,
+        summary: z.string().describe("Human-readable orchestration summary, shown in the project's activity feed."),
+        pendingActions: z
+          .array(
+            z.object({
+              description: z.string(),
+              owner: z.string().optional().describe("Who owns this action, e.g. a household member or professional role."),
+              dueContext: z.string().optional().describe("Free-text timing context, not a hard deadline."),
+            })
+          )
+          .optional(),
+        escalationLevel: severityEnum.optional(),
+      },
+    },
+    async ({ projectId, summary, pendingActions, escalationLevel }) => {
+      try {
+        return textResult(
+          await recordPendingOrchestrationState(supabase, projectId, {
+            summary,
+            pendingActions,
+            escalationLevel,
+          })
         );
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
