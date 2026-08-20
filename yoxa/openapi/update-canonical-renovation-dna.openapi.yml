@@ -83,6 +83,64 @@ paths:
                       affectedDomains:
                         type: array
                         items: { type: string, enum: [family, spatial, preference, budget, constraint] }
+                householdMembers:
+                  type: array
+                  description: New household members to record. Only ever sourced from conversational evidence — never inferred from documents.
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name: { type: string }
+                      roleInHousehold: { type: string, description: "e.g. primary contact's spouse, child, parent living with the family" }
+                      isPrimaryContact: { type: boolean, description: Defaults to false. }
+                      accessibilityNeeds: { type: string }
+                constraints:
+                  type: array
+                  description: New structured constraint records — for classifying something as hard/soft/negotiable, not just describing it in prose.
+                  items:
+                    type: object
+                    required: [category, hardness, description]
+                    properties:
+                      category: { type: string }
+                      hardness: { type: string, enum: [hard, soft, negotiable] }
+                      status:
+                        type: string
+                        enum: [confirmed, provisional, unresolved, requires_verification, cleared]
+                        description: Defaults to unresolved.
+                      description: { type: string }
+                      evidenceIds:
+                        type: array
+                        items: { type: string, format: uuid }
+                        description: Underlying evidence ids this classification rests on.
+                budgetLines:
+                  type: array
+                  description: New structured budget-category records — for a real allocation model, not just a stated figure in prose.
+                  items:
+                    type: object
+                    required: [category]
+                    properties:
+                      category: { type: string }
+                      probableLow: { type: number }
+                      probableHigh: { type: number }
+                      estimated: { type: number }
+                      quoted: { type: number }
+                      confirmed: { type: number }
+                      priorityTier: { type: string, description: "e.g. must-spend, flexible, low-priority." }
+                spatialElements:
+                  type: array
+                  description: New structured spatial-element records, distinct from the raw evidence spatial evidence is already written as.
+                  items:
+                    type: object
+                    required: [elementType, certainty]
+                    properties:
+                      room: { type: string }
+                      elementType: { type: string }
+                      attributes: { type: object }
+                      certainty: { type: string, enum: [unknown, low, medium, high] }
+                      requiresVerification: { type: boolean, description: Defaults to false. }
+                      evidenceIds:
+                        type: array
+                        items: { type: string, format: uuid }
       responses:
         "201":
           description: Evidence was written.
@@ -111,6 +169,63 @@ paths:
                         contradicts_evidence_id: { type: [string, "null"], format: uuid }
                         superseded_by_id: { type: [string, "null"], format: uuid }
                         related_evidence_ids:
+                          type: array
+                          items: { type: string, format: uuid }
+                        created_at: { type: string, format: date-time }
+                  householdMembers:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, is_primary_contact]
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        role_in_household: { type: [string, "null"] }
+                        is_primary_contact: { type: boolean }
+                        accessibility_needs: { type: [string, "null"] }
+                  constraints:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, category, hardness, status, description, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        category: { type: string }
+                        hardness: { type: string }
+                        status: { type: string }
+                        description: { type: string }
+                        evidence_ids:
+                          type: array
+                          items: { type: string, format: uuid }
+                        created_at: { type: string, format: date-time }
+                  budgetLines:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, category, priority_tier, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        category: { type: string }
+                        probable_low: { type: [number, "null"] }
+                        probable_high: { type: [number, "null"] }
+                        estimated: { type: [number, "null"] }
+                        quoted: { type: [number, "null"] }
+                        confirmed: { type: [number, "null"] }
+                        priority_tier: { type: string }
+                        created_at: { type: string, format: date-time }
+                  spatialElements:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, element_type, certainty, requires_verification, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        room: { type: [string, "null"] }
+                        element_type: { type: string }
+                        attributes: { type: object }
+                        certainty: { type: string }
+                        requires_verification: { type: boolean }
+                        evidence_ids:
                           type: array
                           items: { type: string, format: uuid }
                         created_at: { type: string, format: date-time }

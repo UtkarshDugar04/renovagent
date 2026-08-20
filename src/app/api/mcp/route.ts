@@ -1,0 +1,228 @@
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { createServiceClient } from "@/lib/supabase/service";
+import { requireYoxaAuth } from "@/lib/yoxa/inbound-auth";
+import { getCanonicalRenovationDna } from "@/lib/yoxa/tools/get-canonical-renovation-dna";
+import { reviewSpatialEvidence } from "@/lib/yoxa/tools/review-spatial-evidence";
+import {
+  updateCanonicalRenovationDna,
+  type UpdateCanonicalRenovationDnaInput,
+} from "@/lib/yoxa/tools/update-canonical-renovation-dna";
+import { ToolError } from "@/lib/yoxa/tools/errors";
+
+// POST/GET/DELETE /api/mcp
+// The real Model Context Protocol server Yoxa's "MCP Tool" connections talk
+// to — one connection, multiple tools, exactly the shape Yoxa's MCP
+// Connection screen expects (Connection Name, Server URL, Bearer token).
+// This is NOT the same protocol as the plain REST routes under
+// /api/yoxa/projects/** — those stay in place for any caller that still
+// wants a plain HTTP/OpenAPI integration, but Yoxa agents attached via an
+// "MCP Tool" action reach the project's Renovation DNA through here.
+//
+// Every tool below wraps the exact same shared logic the REST routes call
+// (src/lib/yoxa/tools/*) — there is exactly one implementation per
+// operation, not one per transport.
+//
+// Runs stateless: a fresh McpServer + transport per request, matching how
+// Vercel's serverless functions actually execute (no persistent connection
+// to hold a session open across invocations). enableJsonResponse keeps
+// every response a single JSON body rather than an SSE stream, which is
+// both simpler to reason about and more robust for a request/response tool
+// caller like Yoxa.
+
+const domainEnum = z.enum(["family", "spatial", "preference", "budget", "constraint"]);
+const evidenceTypeEnum = z.enum([
+  "aspiration", "requirement", "preference", "routine", "pain_point",
+  "observation", "constraint", "priority", "decision", "trade_off",
+  "assumption", "inference", "question", "conflict", "verification", "rejection",
+]);
+const evidenceStatusEnum = z.enum([
+  "explicit", "verified", "inferred", "assumed", "unresolved", "conflicted", "stale", "superseded",
+]);
+const confidenceEnum = z.enum(["unknown", "low", "medium", "high"]);
+const authorityEnum = z.enum(["d0_agent", "d1_recommendation", "d2_homeowner", "d3_professional", "d4_external"]);
+const severityEnum = z.enum(["e0", "e1", "e2", "e3", "e4", "e5"]);
+const hardnessEnum = z.enum(["hard", "soft", "negotiable"]);
+const constraintStatusEnum = z.enum(["confirmed", "provisional", "unresolved", "requires_verification", "cleared"]);
+
+const projectIdSchema = { projectId: z.string().uuid().describe("The project's id, exactly as provided in the call context — never guessed.") };
+
+function textResult(data: unknown) {
+  return { content: [{ type: "text" as const, text: JSON.stringify(data) }] };
+}
+
+function errorResult(message: string) {
+  return { content: [{ type: "text" as const, text: message }], isError: true };
+}
+
+function buildServer() {
+  const server = new McpServer({ name: "renovagent", version: "1.0.0" });
+  const supabase = createServiceClient();
+
+  server.registerTool(
+    "getCanonicalRenovationDna",
+    {
+      description: "Read the full canonical Renovation DNA for one project — household, evidence, questions, assumptions, decisions, trade-offs, conflicts, readiness, constraints, budget lines, spatial elements.",
+      inputSchema: projectIdSchema,
+    },
+    async ({ projectId }) => {
+      try {
+        return textResult(await getCanonicalRenovationDna(supabase, projectId));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "reviewSpatialEvidence",
+    {
+      description: "Gather spatial-domain evidence and elements, with unresolved items and open conflicts already flagged, for the agent to compare.",
+      inputSchema: projectIdSchema,
+    },
+    async ({ projectId }) => {
+      try {
+        return textResult(await reviewSpatialEvidence(supabase, projectId));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "updateCanonicalRenovationDna",
+    {
+      description: "Apply a provenance-aware evidence patch to a project's Renovation DNA — new evidence, questions, conflicts, household members, constraints, budget lines, and spatial elements.",
+      inputSchema: {
+        ...projectIdSchema,
+        evidence: z
+          .array(
+            z.object({
+              domain: domainEnum,
+              evidenceType: evidenceTypeEnum,
+              statement: z.string(),
+              status: evidenceStatusEnum.optional(),
+              confidence: confidenceEnum.optional(),
+              authority: authorityEnum.optional(),
+              source: z.string().optional(),
+              contradictsEvidenceId: z.string().uuid().optional(),
+              supersededById: z.string().uuid().optional(),
+            })
+          )
+          .min(1)
+          .describe("New evidence to add, each carrying its own canonical classification."),
+        newQuestions: z
+          .array(
+            z.object({
+              domain: domainEnum,
+              questionText: z.string(),
+              whyItMatters: z.string().optional(),
+              severity: severityEnum.optional(),
+              blocksReadiness: z.boolean().optional(),
+            })
+          )
+          .optional(),
+        conflicts: z
+          .array(
+            z.object({
+              evidenceAId: z.string().uuid(),
+              evidenceBId: z.string().uuid(),
+              reason: z.string(),
+              affectedDomains: z.array(domainEnum).optional(),
+            })
+          )
+          .optional(),
+        householdMembers: z
+          .array(
+            z.object({
+              name: z.string(),
+              roleInHousehold: z.string().optional(),
+              isPrimaryContact: z.boolean().optional(),
+              accessibilityNeeds: z.string().optional(),
+            })
+          )
+          .optional()
+          .describe("Only ever sourced from conversational evidence — never inferred from documents."),
+        constraints: z
+          .array(
+            z.object({
+              category: z.string(),
+              hardness: hardnessEnum,
+              status: constraintStatusEnum.optional(),
+              description: z.string(),
+              evidenceIds: z.array(z.string().uuid()).optional(),
+            })
+          )
+          .optional(),
+        budgetLines: z
+          .array(
+            z.object({
+              category: z.string(),
+              probableLow: z.number().optional(),
+              probableHigh: z.number().optional(),
+              estimated: z.number().optional(),
+              quoted: z.number().optional(),
+              confirmed: z.number().optional(),
+              priorityTier: z.string().optional(),
+            })
+          )
+          .optional(),
+        spatialElements: z
+          .array(
+            z.object({
+              room: z.string().optional(),
+              elementType: z.string(),
+              attributes: z.record(z.string(), z.unknown()).optional(),
+              certainty: confidenceEnum,
+              requiresVerification: z.boolean().optional(),
+              evidenceIds: z.array(z.string().uuid()).optional(),
+            })
+          )
+          .optional(),
+      },
+    },
+    async ({ projectId, ...input }) => {
+      try {
+        return textResult(
+          await updateCanonicalRenovationDna(
+            supabase,
+            projectId,
+            input as UpdateCanonicalRenovationDnaInput
+          )
+        );
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  return server;
+}
+
+async function handleMcpRequest(request: NextRequest): Promise<Response> {
+  const authError = requireYoxaAuth(request);
+  if (authError) return authError;
+
+  const server = buildServer();
+  const transport = new WebStandardStreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  });
+
+  await server.connect(transport);
+  return transport.handleRequest(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleMcpRequest(request);
+}
+
+export async function GET(request: NextRequest) {
+  return handleMcpRequest(request);
+}
+
+export async function DELETE(request: NextRequest) {
+  return handleMcpRequest(request);
+}
