@@ -15,6 +15,9 @@ import { recordPendingOrchestrationState } from "@/lib/yoxa/tools/record-pending
 import { recordReadinessAssessment } from "@/lib/yoxa/tools/record-readiness-assessment";
 import { recordProposedDesignPackage } from "@/lib/yoxa/tools/record-proposed-design-package";
 import { calculateBudgetScenarios } from "@/lib/yoxa/tools/calculate-budget-scenarios";
+import { recordExperienceFeedback } from "@/lib/yoxa/tools/record-experience-feedback";
+import { applyDependencyImpactPatch } from "@/lib/yoxa/tools/apply-dependency-impact-patch";
+import { generateRoleHandoffBrief } from "@/lib/yoxa/tools/generate-role-handoff-brief";
 import { ToolError } from "@/lib/yoxa/tools/errors";
 
 // POST/GET/DELETE /api/mcp
@@ -54,6 +57,8 @@ const constraintStatusEnum = z.enum(["confirmed", "provisional", "unresolved", "
 const readinessStateEnum = z.enum([
   "not_started", "discovery_in_progress", "partially_understood", "sufficient_for_validation", "validated",
 ]);
+const sentimentEnum = z.enum(["like", "dislike", "neutral"]);
+const decisionMakerRoleEnum = z.enum(["homeowner", "agency", "admin"]);
 
 const projectIdSchema = { projectId: z.string().uuid().describe("The project's id, exactly as provided in the call context — never guessed.") };
 
@@ -341,6 +346,116 @@ function buildServer() {
         return textResult(
           await calculateBudgetScenarios(supabase, projectId, { contingencyPercent, categoryEstimates })
         );
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordExperienceFeedbackV2",
+    {
+      description: "Persist classified human feedback, rejection, and any resulting decision as new evidence — feedback must already be classified by the calling agent, not raw text.",
+      inputSchema: {
+        ...projectIdSchema,
+        designOptionId: z.string().uuid().optional().describe("Required together with sentiment if this feedback is about a specific design option."),
+        sentiment: sentimentEnum.optional(),
+        comment: z.string().optional(),
+        subElement: z.string().optional().describe("e.g. layout, materials, colour, storage, lighting, cost."),
+        evidence: z
+          .array(
+            z.object({
+              domain: domainEnum,
+              evidenceType: evidenceTypeEnum,
+              statement: z.string(),
+              status: evidenceStatusEnum.optional(),
+              confidence: confidenceEnum.optional(),
+            })
+          )
+          .optional()
+          .describe("Newly classified evidence this feedback produced — changed preferences, rejections, etc."),
+        decision: z
+          .object({
+            decisionText: z.string(),
+            decisionMakerRole: decisionMakerRoleEnum.optional(),
+            alternativesConsidered: z.array(z.string()).optional(),
+            rationale: z.string().optional(),
+            affectedDomains: z.array(domainEnum).optional(),
+            reversibility: z.string().optional(),
+          })
+          .optional()
+          .describe("Present only if this feedback resulted in a recorded decision."),
+      },
+    },
+    async ({ projectId, ...input }) => {
+      try {
+        return textResult(await recordExperienceFeedback(supabase, projectId, input));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "applyDependencyImpactPatch",
+    {
+      description: "Propagate a change across dependent design options, decisions, readiness, and questions while preserving history — the Impact & Change Propagation Agent's one adapter for a ripple effect.",
+      inputSchema: {
+        ...projectIdSchema,
+        summary: z.string().optional().describe("Human-readable summary of what changed and why, logged as the project's activity entry."),
+        invalidatedDesignOptionIds: z.array(z.string().uuid()).optional().describe("design_options to mark rejected as a result of this change."),
+        supersededDecisions: z
+          .array(
+            z.object({
+              oldDecisionId: z.string().uuid().describe("The decision being superseded — marked superseded, not deleted."),
+              newDecisionText: z.string(),
+              decisionMakerRole: decisionMakerRoleEnum.optional(),
+              rationale: z.string().optional(),
+              affectedDomains: z.array(domainEnum).optional(),
+            })
+          )
+          .optional(),
+        readinessUpdates: z
+          .array(z.object({ domain: domainEnum, state: readinessStateEnum, reason: z.string().optional() }))
+          .optional(),
+        newQuestions: z
+          .array(
+            z.object({
+              domain: domainEnum,
+              questionText: z.string(),
+              whyItMatters: z.string().optional(),
+              severity: severityEnum.optional(),
+            })
+          )
+          .optional(),
+      },
+    },
+    async ({ projectId, ...input }) => {
+      try {
+        return textResult(await applyDependencyImpactPatch(supabase, projectId, input));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "generateRoleHandoffBrief",
+    {
+      description: "Store a role-appropriate handoff brief the agent has composed, for human review and approval before any delivery — never claim approval, verification, or legal permission on the project's behalf.",
+      inputSchema: {
+        ...projectIdSchema,
+        recipientRole: z.string().optional().describe('Who this brief is written for, e.g. professional, contractor, architect. Defaults to "professional".'),
+        briefText: z
+          .string()
+          .describe(
+            "The full composed brief — context, approved decisions, recommendations, unresolved questions, evidence and provenance, assumptions, risks, dependencies, budget implications, verification requirements, and next actions with owners."
+          ),
+      },
+    },
+    async ({ projectId, recipientRole, briefText }) => {
+      try {
+        return textResult(await generateRoleHandoffBrief(supabase, projectId, { recipientRole, briefText }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
       }
