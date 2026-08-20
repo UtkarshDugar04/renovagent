@@ -1,0 +1,64 @@
+openapi: 3.1.0
+info:
+  title: Record Engine Artifact
+  version: "1.0.0"
+servers:
+  - url: https://renovagent-five.vercel.app
+security:
+  - clientApiBearer: []
+paths:
+  /api/yoxa/projects/{projectId}/artifacts:
+    post:
+      operationId: recordEngineArtifact
+      summary: Store a domain intelligence engine's composed output — a moodboard, a persona document, a rough schematic, a constraint summary — rendered on Renovagent's own dashboard, not Yoxa's interface.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [engine, artifactType, content]
+              properties:
+                engine:
+                  type: string
+                  enum: [family, spatial, preference, budget, constraint]
+                artifactType:
+                  type: string
+                  description: "e.g. persona, moodboard, schematic, summary — free text, since these vary per engine and may expand."
+                content:
+                  type: string
+                  description: The composed HTML content itself. Rendered inside a fully sandboxed iframe on the dashboard — no scripts will execute regardless of what this contains, so write real markup, not something that depends on script behavior.
+      responses:
+        "201":
+          description: The artifact was stored.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [artifact]
+                properties:
+                  artifact:
+                    type: object
+                    required: [id, project_id, engine, artifact_type, content, created_at]
+                    properties:
+                      id: { type: string, format: uuid }
+                      project_id: { type: string, format: uuid }
+                      engine: { type: string }
+                      artifact_type: { type: string }
+                      content: { type: string }
+                      created_at: { type: string, format: date-time }
+        "400":
+          description: content was missing.
+          content:
+            application/json:
+              schema: { type: object, required: [error], properties: { error: { type: string } } }
+components:
+  securitySchemes:
+    clientApiBearer:
+      type: http
+      scheme: bearer

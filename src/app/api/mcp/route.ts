@@ -10,6 +10,7 @@ import {
   updateCanonicalRenovationDna,
   type UpdateCanonicalRenovationDnaInput,
 } from "@/lib/yoxa/tools/update-canonical-renovation-dna";
+import { recordEngineArtifact } from "@/lib/yoxa/tools/record-engine-artifact";
 import { ToolError } from "@/lib/yoxa/tools/errors";
 
 // POST/GET/DELETE /api/mcp
@@ -191,6 +192,28 @@ function buildServer() {
             projectId,
             input as UpdateCanonicalRenovationDnaInput
           )
+        );
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordEngineArtifact",
+    {
+      description: "Store a domain intelligence engine's composed output — a moodboard, a persona document, a rough schematic, a constraint summary — rendered on Renovagent's own dashboard, not Yoxa's interface. Rendered inside a fully sandboxed iframe, so scripts never execute regardless of content.",
+      inputSchema: {
+        ...projectIdSchema,
+        engine: domainEnum,
+        artifactType: z.string().describe("e.g. persona, moodboard, schematic, summary."),
+        content: z.string().describe("The composed HTML content itself."),
+      },
+    },
+    async ({ projectId, engine, artifactType, content }) => {
+      try {
+        return textResult(
+          await recordEngineArtifact(supabase, projectId, { engine, artifactType, content })
         );
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));

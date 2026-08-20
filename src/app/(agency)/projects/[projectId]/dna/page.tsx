@@ -43,7 +43,7 @@ export default async function ProjectDnaPage({
   const { projectId } = await params;
   const supabase = await createClient();
 
-  const [{ data: evidence }, { data: constraints }, { data: budgetLines }, { data: conflicts }, { data: assumptions }] =
+  const [{ data: evidence }, { data: constraints }, { data: budgetLines }, { data: conflicts }, { data: assumptions }, { data: artifacts }] =
     await Promise.all([
       supabase
         .from("evidence")
@@ -66,21 +66,54 @@ export default async function ProjectDnaPage({
         .from("assumptions")
         .select("id, statement, confidence, impact_if_wrong, verification_required, status")
         .eq("project_id", projectId),
+      supabase
+        .from("project_artifacts")
+        .select("id, engine, artifact_type, content, created_at")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false }),
     ]);
 
   const domains: Domain[] = ["family", "spatial", "preference", "budget", "constraint"];
+
+  // Latest artifact per (engine, artifact_type) — artifacts are append-only,
+  // so an engine re-running produces a new row rather than updating one.
+  const latestArtifacts = new Map<string, (typeof artifacts extends (infer T)[] | null ? T : never)>();
+  for (const artifact of artifacts ?? []) {
+    const key = `${artifact.engine}:${artifact.artifact_type}`;
+    if (!latestArtifacts.has(key)) latestArtifacts.set(key, artifact);
+  }
 
   return (
     <div className="space-y-8">
       {domains.map((domain) => {
         const items = (evidence ?? []).filter((e) => e.domain === domain);
         const Icon = DOMAIN_META[domain].icon;
+        const domainArtifacts = [...latestArtifacts.values()].filter((a) => a.engine === domain);
         return (
           <section key={domain}>
             <h2 className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground/90">
               <Icon className="h-3.5 w-3.5 text-primary" />
               {DOMAIN_META[domain].label} ({items.length})
             </h2>
+            {domainArtifacts.map((artifact) => (
+              <div key={artifact.id} className="glass mb-3 overflow-hidden rounded-xl border-0">
+                <div className="flex items-center justify-between px-3 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <span>{artifact.artifact_type}</span>
+                  <span>{new Date(artifact.created_at).toLocaleString()}</span>
+                </div>
+                {/* Agent-generated HTML — never trusted with script execution.
+                    Empty sandbox = every iframe privilege denied: no scripts,
+                    no forms, no same-origin access, nothing. Fixed height
+                    since a locked-down iframe can't safely postMessage its
+                    content size back to the parent for auto-resize. */}
+                <iframe
+                  srcDoc={artifact.content}
+                  sandbox=""
+                  className="h-[420px] w-full border-0 bg-white"
+                  title={`${DOMAIN_META[domain].label} — ${artifact.artifact_type}`}
+                />
+              </div>
+            ))}
             {items.length === 0 ? (
               <p className="text-xs text-muted-foreground">No evidence yet.</p>
             ) : (

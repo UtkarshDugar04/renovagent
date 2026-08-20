@@ -883,6 +883,41 @@ export type Database = {
         }
         Relationships: []
       }
+      project_artifacts: {
+        Row: {
+          artifact_type: string
+          content: string
+          created_at: string
+          engine: Database["public"]["Enums"]["domain_type"]
+          id: string
+          project_id: string
+        }
+        Insert: {
+          artifact_type: string
+          content: string
+          created_at?: string
+          engine: Database["public"]["Enums"]["domain_type"]
+          id?: string
+          project_id: string
+        }
+        Update: {
+          artifact_type?: string
+          content?: string
+          created_at?: string
+          engine?: Database["public"]["Enums"]["domain_type"]
+          id?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_artifacts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_constraints: {
         Row: {
           category: string

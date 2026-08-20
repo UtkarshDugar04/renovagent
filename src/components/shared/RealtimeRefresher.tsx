@@ -22,6 +22,7 @@ const PROJECT_SCOPED_TABLES = [
   "budget_lines",
   "spatial_elements",
   "household_members",
+  "project_artifacts",
 ] as const;
 
 // Renders nothing. Subscribes to every table a live project view depends
