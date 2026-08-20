@@ -30,6 +30,8 @@ export async function getCanonicalRenovationDna(supabase: SupabaseClient<any>, p
     { data: constraints },
     { data: budgetLines },
     { data: spatialElements },
+    { data: designRounds },
+    { data: designOptions },
   ] = await Promise.all([
     supabase
       .from("household_members")
@@ -75,6 +77,18 @@ export async function getCanonicalRenovationDna(supabase: SupabaseClient<any>, p
       .from("spatial_elements")
       .select("id, room, element_type, attributes, certainty, requires_verification, evidence_ids, created_at")
       .eq("project_id", projectId),
+    supabase
+      .from("design_rounds")
+      .select("id, round_number, status, created_at")
+      .eq("project_id", projectId)
+      .order("round_number", { ascending: true }),
+    supabase
+      .from("design_options")
+      .select(
+        "id, design_round_id, label, rationale, satisfies_evidence_ids, trade_offs, cost_band, sourcing_status, status, visible_to_homeowner, what_it_would_feel_like, created_at"
+      )
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: true }),
   ]);
 
   return {
@@ -90,5 +104,7 @@ export async function getCanonicalRenovationDna(supabase: SupabaseClient<any>, p
     constraints: constraints ?? [],
     budgetLines: budgetLines ?? [],
     spatialElements: spatialElements ?? [],
+    designRounds: designRounds ?? [],
+    designOptions: designOptions ?? [],
   };
 }

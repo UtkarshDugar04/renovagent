@@ -39,6 +39,8 @@ paths:
                   - constraints
                   - budgetLines
                   - spatialElements
+                  - designRounds
+                  - designOptions
                 properties:
                   project:
                     type: object
@@ -227,6 +229,47 @@ paths:
                         evidence_ids:
                           type: array
                           items: { type: string, format: uuid }
+                        created_at: { type: string, format: date-time }
+                  designRounds:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, round_number, status, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        round_number: { type: integer }
+                        status: { type: string }
+                        created_at: { type: string, format: date-time }
+                  designOptions:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, design_round_id, label, rationale, status, sourcing_status, visible_to_homeowner, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        design_round_id: { type: string, format: uuid }
+                        label: { type: string }
+                        rationale: { type: string }
+                        satisfies_evidence_ids:
+                          type: array
+                          items: { type: string, format: uuid }
+                        trade_offs:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              gained: { type: string }
+                              sacrificed: { type: string }
+                        cost_band:
+                          type: [object, "null"]
+                          properties:
+                            low: { type: number }
+                            high: { type: number }
+                            confidence: { type: string }
+                        sourcing_status: { type: string }
+                        status: { type: string, enum: [proposed, validated, rejected] }
+                        visible_to_homeowner: { type: boolean }
+                        what_it_would_feel_like: { type: [string, "null"] }
                         created_at: { type: string, format: date-time }
         "404":
           description: Project not found.
