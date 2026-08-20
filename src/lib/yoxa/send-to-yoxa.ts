@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateConversationBrief } from "@/lib/gemini/generate-brief";
+import { markdownToPdf } from "@/lib/gemini/markdown-to-pdf";
 import { triggerYoxaWorkflow } from "@/lib/yoxa/trigger";
 
 export interface SendToYoxaResult {
@@ -52,8 +53,10 @@ export async function sendToYoxa(
   }
 
   let brief: { markdown: string; messageCount: number };
+  let briefPdf: Buffer;
   try {
     brief = await generateConversationBrief(supabase, projectId);
+    briefPdf = await markdownToPdf(brief.markdown);
   } catch (err) {
     await releaseClaim();
     return { ok: false, error: err instanceof Error ? err.message : "Failed to generate the conversation brief" };
@@ -64,8 +67,8 @@ export async function sendToYoxa(
     senderRole,
     messageText: "Conversation brief attached — see file.",
     attachment: {
-      filename: "conversation-brief.md",
-      content: new Blob([brief.markdown], { type: "text/markdown" }),
+      filename: "conversation-brief.pdf",
+      content: new Blob([new Uint8Array(briefPdf)], { type: "application/pdf" }),
     },
   });
 

@@ -23,7 +23,13 @@ export async function login(formData: FormData) {
     redirect(`/auth/login?error=${encodeURIComponent(error.message)}`);
   }
 
-  redirect("/conversation");
+  // Role-based dispatch (agency/admin -> /projects, homeowner -> /conversation
+  // or onboarding) lives in the root page, not here — redirecting straight to
+  // /conversation sent every agency/admin login into the homeowner route
+  // group, where the layout has no membership row to find for them and
+  // renders the "create your first project" onboarding screen meant for a
+  // brand new homeowner instead.
+  redirect("/");
 }
 
 export async function signup(formData: FormData) {
@@ -50,7 +56,7 @@ export async function signup(formData: FormData) {
     );
   }
 
-  redirect("/conversation");
+  redirect("/");
 }
 
 export async function logout() {

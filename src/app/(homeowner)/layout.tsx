@@ -10,6 +10,17 @@ export default async function HomeownerLayout({ children }: LayoutProps<"/">) {
 
   if (!user) redirect("/auth/login");
 
+  // Defense in depth: root page.tsx already routes agency/admin to
+  // /projects on login, but a bookmark, a shared link, or the back button
+  // can land a staff account here directly — without this check they'd
+  // see the "create your first project" onboarding screen meant for a
+  // brand new homeowner, since staff normally have no project_members row
+  // of their own (see 20260818020000_agency_wide_access.sql).
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  if (profile?.role === "agency" || profile?.role === "admin") {
+    redirect("/projects");
+  }
+
   const { data: membership } = await supabase
     .from("project_members")
     .select("project_id, projects(name)")
