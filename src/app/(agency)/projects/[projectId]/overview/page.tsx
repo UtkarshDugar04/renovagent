@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { Domain } from "@/lib/types/domain";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +34,7 @@ export default async function ProjectOverviewPage({
     { data: openEscalations },
     { data: recentEvents },
     { data: project },
+    { data: yoxaRun },
   ] = await Promise.all([
     supabase.from("readiness").select("domain, state, reason").eq("project_id", projectId),
     supabase
@@ -62,6 +65,11 @@ export default async function ProjectOverviewPage({
       .select("budget_comfortable_low, budget_comfortable_high, scope_summary")
       .eq("id", projectId)
       .single(),
+    supabase
+      .from("workflow_runs")
+      .select("workflow_run_id, created_at")
+      .eq("project_id", projectId)
+      .maybeSingle(),
   ]);
 
   const domains: Domain[] = ["family", "spatial", "preference", "budget", "constraint"];
@@ -90,6 +98,22 @@ export default async function ProjectOverviewPage({
             );
           })}
         </div>
+      </section>
+
+      <section>
+        {yoxaRun ? (
+          <div className="glass flex items-center gap-2 rounded-2xl border-accent/20 px-4 py-2.5 text-sm text-accent">
+            <Send className="h-4 w-4 shrink-0" />
+            Sent to Yoxa on {new Date(yoxaRun.created_at).toLocaleDateString()} — planning and design work is underway.
+          </div>
+        ) : (
+          <div className="glass flex items-center justify-between gap-2 rounded-2xl px-4 py-2.5 text-sm text-muted-foreground">
+            <span>Not yet sent to Yoxa.</span>
+            <Link href={`/projects/${projectId}/call`} className="text-primary underline underline-offset-2">
+              Go to the call tab
+            </Link>
+          </div>
+        )}
       </section>
 
       {project?.scope_summary && (

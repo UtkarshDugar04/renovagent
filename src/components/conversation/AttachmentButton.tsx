@@ -49,6 +49,15 @@ export function AttachmentButton({
       if (dbError || !attachment) throw dbError;
 
       onUploaded({ id: attachment.id, label: attachment.label ?? file.name });
+
+      // Fire-and-forget: the route responds immediately and does the real
+      // Gemini pass in the background. Evidence it writes shows up on
+      // /understanding via realtime, not through this response.
+      fetch(`/api/projects/${projectId}/attachments/${attachment.id}/process`, { method: "POST" }).catch(() => {
+        // Best-effort kickoff — if this request itself fails to even land,
+        // the attachment just stays 'pending' rather than erroring the
+        // upload the user already sees succeeded.
+      });
     } catch {
       alert("Couldn't upload that file — try again.");
     } finally {

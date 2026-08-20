@@ -87,7 +87,9 @@ export function DesignOptionCard({
         )}
 
         <div className="border-t border-white/10 pt-3">
-          {submitted ? (
+          {isPending ? (
+            <p className="text-xs text-muted-foreground">Recording your feedback…</p>
+          ) : submitted ? (
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <CircleCheck className="h-3.5 w-3.5 text-accent" />
               Feedback recorded — this shapes what comes next.

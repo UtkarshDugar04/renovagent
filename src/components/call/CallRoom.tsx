@@ -11,6 +11,9 @@ import {
   Sparkles,
   User,
   Radio,
+  Send,
+  CheckCircle2,
+  TriangleAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -19,7 +22,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useCallSession } from "@/lib/webrtc/useCallSession";
 import { useLiveTranscription } from "@/lib/webrtc/useLiveTranscription";
 import { useWhisperTranscription } from "@/lib/webrtc/useWhisperTranscription";
-import { joinOrStartCallSession, endCallSession } from "./actions";
+import { joinOrStartCallSession, endCallSession, sendToYoxaAction } from "./actions";
 
 interface Message {
   id: string;
@@ -35,20 +38,30 @@ export function CallRoom({
   currentRole,
   initialActiveCallSessionId,
   initialMessages,
+  alreadySentToYoxa = false,
 }: {
   projectId: string;
   selfId: string;
   currentRole: "homeowner" | "agency" | "admin";
   initialActiveCallSessionId: string | null;
   initialMessages: Message[];
+  alreadySentToYoxa?: boolean;
 }) {
   const [callSessionId, setCallSessionId] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
   const [messages, setMessages] = useState(initialMessages);
   const [typedDraft, setTypedDraft] = useState("");
+  // A count, not a boolean: live-call fragments can arrive faster than a
+  // real Gemini reply comes back, so more than one of these can be in
+  // flight at once.
+  const [pendingReplies, setPendingReplies] = useState(0);
   const [hasOtherActiveSession, setHasOtherActiveSession] = useState(
     initialActiveCallSessionId !== null
   );
+  const [sentToYoxa, setSentToYoxa] = useState(alreadySentToYoxa);
+  const [sending, setSending] = useState(false);
+  const [confirmingSend, setConfirmingSend] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -94,7 +107,7 @@ export function CallRoom({
 
   useEffect(() => {
     feedBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, interimText]);
+  }, [messages, interimText, pendingReplies]);
 
   // Live feed subscription, independent of the whole-page realtime
   // refresher — a call needs sub-second updates, not a full route refetch
@@ -141,17 +154,22 @@ export function CallRoom({
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimistic]);
+    setPendingReplies((n) => n + 1);
 
-    const res = await fetch(`/api/projects/${projectId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, turnType: "call_transcript", callSessionId }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.reply) {
-        setMessages((prev) => [...prev, data.reply]);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, turnType: "call_transcript", callSessionId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reply) {
+          setMessages((prev) => [...prev, data.reply]);
+        }
       }
+    } finally {
+      setPendingReplies((n) => n - 1);
     }
   }
 
@@ -168,15 +186,20 @@ export function CallRoom({
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimistic]);
+    setPendingReplies((n) => n + 1);
 
-    const res = await fetch(`/api/projects/${projectId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, turnType: "new_message", callSessionId }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.reply) setMessages((prev) => [...prev, data.reply]);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, turnType: "new_message", callSessionId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reply) setMessages((prev) => [...prev, data.reply]);
+      }
+    } finally {
+      setPendingReplies((n) => n - 1);
     }
   }
 
@@ -195,10 +218,38 @@ export function CallRoom({
     setCallSessionId(null);
   }
 
+  async function handleSendToYoxa() {
+    setSending(true);
+    setSendError(null);
+    const result = await sendToYoxaAction(projectId);
+    setSending(false);
+    if (result.ok) {
+      setSentToYoxa(true);
+      setConfirmingSend(false);
+    } else {
+      setSendError(result.error ?? "Something went wrong sending this to Yoxa.");
+    }
+  }
+
   const inCall = callSessionId !== null && connectionState !== "ended" && connectionState !== "idle";
+  const canSendToYoxa = (currentRole === "agency" || currentRole === "admin") && !inCall && messages.length > 0;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+    <div className="space-y-4">
+      {(currentRole === "agency" || currentRole === "admin") && (
+        <SendToYoxaPanel
+          sentToYoxa={sentToYoxa}
+          canSend={canSendToYoxa}
+          inCall={inCall}
+          sending={sending}
+          confirming={confirmingSend}
+          error={sendError}
+          onStartConfirm={() => setConfirmingSend(true)}
+          onCancelConfirm={() => setConfirmingSend(false)}
+          onConfirm={handleSendToYoxa}
+        />
+      )}
+      <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
       <div className="space-y-3">
         <div className="glass overflow-hidden rounded-2xl">
           <div className="relative grid grid-cols-2 gap-px bg-white/5">
@@ -287,6 +338,7 @@ export function CallRoom({
               </div>
             </div>
           )}
+          {pendingReplies > 0 && <ThinkingBubble />}
           <div ref={feedBottomRef} />
         </div>
 
@@ -307,6 +359,95 @@ export function CallRoom({
             <Sparkles className="h-4 w-4" />
           </Button>
         </div>
+      </div>
+      </div>
+    </div>
+  );
+}
+
+function SendToYoxaPanel({
+  sentToYoxa,
+  canSend,
+  inCall,
+  sending,
+  confirming,
+  error,
+  onStartConfirm,
+  onCancelConfirm,
+  onConfirm,
+}: {
+  sentToYoxa: boolean;
+  canSend: boolean;
+  inCall: boolean;
+  sending: boolean;
+  confirming: boolean;
+  error: string | null;
+  onStartConfirm: () => void;
+  onCancelConfirm: () => void;
+  onConfirm: () => void;
+}) {
+  if (sentToYoxa) {
+    return (
+      <div className="glass flex items-center gap-2 rounded-2xl border-accent/20 px-4 py-3 text-sm text-accent">
+        <CheckCircle2 className="h-4 w-4 shrink-0" />
+        Sent to Yoxa — planning and design work has started.
+      </div>
+    );
+  }
+
+  if (confirming) {
+    return (
+      <div className="glass space-y-2 rounded-2xl border-primary/20 px-4 py-3">
+        <div className="flex items-start gap-2 text-sm text-foreground/90">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <span>
+            This sends everything captured in this conversation to Yoxa to start planning — it&apos;s a
+            one-time action, there&apos;s no undo or resubmission for this project. Send now?
+          </span>
+        </div>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        <div className="flex gap-2">
+          <Button size="sm" onClick={onConfirm} disabled={sending} className="glow-primary">
+            <Send className="h-3.5 w-3.5" />
+            {sending ? "Sending…" : "Yes, send to Yoxa"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={onCancelConfirm} disabled={sending}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="glass flex items-center justify-between gap-2 rounded-2xl px-4 py-3">
+      <p className="text-sm text-muted-foreground">
+        {inCall
+          ? "Send to Yoxa becomes available once the call has ended."
+          : canSend
+            ? "Ready to send this conversation to Yoxa to start planning."
+            : "Nothing to send yet — the conversation is empty."}
+      </p>
+      <Button size="sm" onClick={onStartConfirm} disabled={!canSend} variant="outline">
+        <Send className="h-3.5 w-3.5" />
+        Send to Yoxa
+      </Button>
+    </div>
+  );
+}
+
+function ThinkingBubble() {
+  return (
+    <div className="flex items-end gap-2">
+      <Avatar className="h-7 w-7 shrink-0">
+        <AvatarFallback className="bg-primary/20">
+          <Sparkles className="h-3.5 w-3.5 text-primary" />
+        </AvatarFallback>
+      </Avatar>
+      <div className="glass flex items-center gap-1 rounded-2xl px-4 py-2.5">
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
       </div>
     </div>
   );

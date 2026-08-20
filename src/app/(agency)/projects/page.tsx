@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FolderOpen, ChevronRight } from "lucide-react";
+import { FolderOpen, ChevronRight, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +14,7 @@ export default async function ProjectListPage() {
 
   const projectIds = (projects ?? []).map((p) => p.id);
 
-  const [{ data: openEscalations }, { data: openQuestions }, { data: readiness }] =
+  const [{ data: openEscalations }, { data: openQuestions }, { data: readiness }, { data: sentRuns }] =
     projectIds.length > 0
       ? await Promise.all([
           supabase
@@ -31,8 +31,14 @@ export default async function ProjectListPage() {
             .from("readiness")
             .select("project_id, state")
             .in("project_id", projectIds),
+          supabase
+            .from("workflow_runs")
+            .select("project_id")
+            .in("project_id", projectIds),
         ])
-      : [{ data: [] }, { data: [] }, { data: [] }];
+      : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+
+  const sentProjectIds = new Set((sentRuns ?? []).map((r) => r.project_id));
 
   function countFor(rows: { project_id: string }[] | null, projectId: string) {
     return (rows ?? []).filter((r) => r.project_id === projectId).length;
@@ -75,6 +81,12 @@ export default async function ProjectListPage() {
                     <span className="text-xs text-muted-foreground">
                       {readinessSummary(p.id)}
                     </span>
+                    {sentProjectIds.has(p.id) && (
+                      <Badge className="gap-1 bg-accent/10 text-xs font-normal text-accent">
+                        <Send className="h-3 w-3" />
+                        Sent to Yoxa
+                      </Badge>
+                    )}
                     {questionCount > 0 && (
                       <Badge className="bg-primary/10 text-xs text-primary">
                         {questionCount} open

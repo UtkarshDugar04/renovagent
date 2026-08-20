@@ -38,7 +38,7 @@ export function ConversationPanel({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, sending]);
 
   async function send() {
     const text = draft.trim();
@@ -136,6 +136,20 @@ export function ConversationPanel({
             </div>
           );
         })}
+        {sending && (
+          <div className="flex items-end gap-2">
+            <Avatar className="h-7 w-7 shrink-0">
+              <AvatarFallback className="bg-primary/20">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="glass flex items-center gap-1 rounded-2xl px-4 py-2.5">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
+            </div>
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 

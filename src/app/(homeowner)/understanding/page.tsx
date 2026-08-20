@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Domain } from "@/lib/types/domain";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { AttachmentList } from "@/components/understanding/AttachmentList";
 
 const DOMAIN_META: Record<Domain, { label: string; icon: React.ElementType }> = {
   family: { label: "Family", icon: Users },
@@ -45,7 +46,7 @@ export default async function UnderstandingPage() {
 
   const { data: attachments } = await supabase
     .from("attachments")
-    .select("id, storage_path, label, mime_type, created_at")
+    .select("id, storage_path, label, mime_type, status, created_at")
     .eq("project_id", membership.project_id)
     .order("created_at", { ascending: false });
 
@@ -78,19 +79,10 @@ export default async function UnderstandingPage() {
             <FileText className="h-3.5 w-3.5 text-muted-foreground" />
             Photos & documents
           </h2>
-          <div className="flex flex-wrap gap-2">
-            {attachmentLinks.map((a) => (
-              <a
-                key={a.id}
-                href={a.url ?? "#"}
-                target="_blank"
-                rel="noreferrer"
-                className="glass rounded-lg px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {a.label}
-              </a>
-            ))}
-          </div>
+          <AttachmentList
+            projectId={membership.project_id}
+            initialAttachments={attachmentLinks.map((a) => ({ id: a.id, label: a.label ?? "attachment", url: a.url, status: a.status }))}
+          />
         </section>
       )}
 
