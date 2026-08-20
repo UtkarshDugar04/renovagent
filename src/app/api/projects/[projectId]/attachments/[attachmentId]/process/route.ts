@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { analyzeAttachment } from "@/lib/gemini/analyze-attachment";
 import { updateCanonicalRenovationDna } from "@/lib/yoxa/tools/update-canonical-renovation-dna";
+import { getProjectRole } from "@/lib/auth/project-access";
 
 // POST /api/projects/:projectId/attachments/:attachmentId/process
 // Called by AttachmentButton right after its own client-side upload +
@@ -25,13 +26,8 @@ export async function POST(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const { data: membership } = await supabase
-    .from("project_members")
-    .select("role")
-    .eq("project_id", projectId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!membership) {
+  const role = await getProjectRole(supabase, projectId, user.id);
+  if (!role) {
     return NextResponse.json({ error: "Not a member of this project" }, { status: 403 });
   }
 

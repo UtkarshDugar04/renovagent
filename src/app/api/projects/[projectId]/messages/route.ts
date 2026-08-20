@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { processTurn } from "@/lib/yoxa/process-turn";
 import { recomputeReadiness } from "@/lib/yoxa/recompute-readiness";
+import { getProjectRole } from "@/lib/auth/project-access";
 import type { Domain } from "@/lib/types/domain";
 
 // POST /api/projects/:projectId/messages
 // Implements the Knowledge Update Protocol: validate → write the inbound
-// message → call the YOXA boundary (stubbed for now) → write whatever it
-// proposes as canonical state → log an event → return the product-level
-// result the frontend renders. No agent output is ever trusted directly —
-// this route is the only writer.
+// message → call the YOXA boundary → write whatever it proposes as
+// canonical state → log an event → return the product-level result the
+// frontend renders. No agent output is ever trusted directly — this route
+// is the only writer.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
@@ -22,14 +23,8 @@ export async function POST(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const { data: membership } = await supabase
-    .from("project_members")
-    .select("role")
-    .eq("project_id", projectId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!membership) {
+  const role = await getProjectRole(supabase, projectId, user.id);
+  if (!role) {
     return NextResponse.json({ error: "Not a member of this project" }, { status: 403 });
   }
 
@@ -48,7 +43,7 @@ export async function POST(
     .from("conversation_messages")
     .insert({
       project_id: projectId,
-      sender_role: membership.role,
+      sender_role: role,
       sender_id: user.id,
       text,
       turn_type: turnType,
