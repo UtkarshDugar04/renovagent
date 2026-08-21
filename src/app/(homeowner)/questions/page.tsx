@@ -5,6 +5,7 @@ import { MeaningVerificationCard } from "@/components/decisions/MeaningVerificat
 import { QuestionRow } from "@/components/decisions/QuestionRow";
 import { ApprovalRequestCard } from "@/components/decisions/ApprovalRequestCard";
 import { EscalationCard } from "@/components/decisions/EscalationCard";
+import { HitlRequestCard, type HitlOption } from "@/components/decisions/HitlRequestCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 
 export default async function QuestionsPage() {
@@ -22,7 +23,7 @@ export default async function QuestionsPage() {
 
   const projectId = membership.project_id;
 
-  const [{ data: questions }, { data: approvals }, { data: escalations }, { data: readiness }] =
+  const [{ data: questions }, { data: approvals }, { data: escalations }, { data: readiness }, { data: hitlRequests }] =
     await Promise.all([
       supabase
         .from("questions")
@@ -41,6 +42,12 @@ export default async function QuestionsPage() {
         .eq("project_id", projectId)
         .eq("status", "open"),
       supabase.from("readiness").select("domain, state").eq("project_id", projectId),
+      supabase
+        .from("yoxa_hitl_requests")
+        .select("id, title, description, options")
+        .eq("project_id", projectId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false }),
     ]);
 
   // Meaning Verification gate: every domain has just reached
@@ -64,7 +71,8 @@ export default async function QuestionsPage() {
     showMeaningVerification ||
     (questions?.length ?? 0) > 0 ||
     (approvals?.length ?? 0) > 0 ||
-    (escalations?.length ?? 0) > 0;
+    (escalations?.length ?? 0) > 0 ||
+    (hitlRequests?.length ?? 0) > 0;
 
   return (
     <div className="space-y-6">
@@ -78,6 +86,19 @@ export default async function QuestionsPage() {
       {!hasAnything && (
         <EmptyState icon={CheckCircle2} iconClassName="text-accent" description="Nothing waiting on you right now." />
       )}
+
+      {(hitlRequests ?? []).map((r) => (
+        <HitlRequestCard
+          key={r.id}
+          projectId={projectId}
+          request={{
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            options: Array.isArray(r.options) ? (r.options as unknown as HitlOption[]) : [],
+          }}
+        />
+      ))}
 
       {showMeaningVerification && <MeaningVerificationCard projectId={projectId} />}
 

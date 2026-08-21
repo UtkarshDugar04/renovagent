@@ -37,7 +37,7 @@ export default async function HomeownerLayout({ children }: LayoutProps<"/">) {
   return (
     <>
       <RealtimeRefresher projectId={membership.project_id} />
-      <HomeownerShell projectName={projectName} userEmail={user.email ?? ""}>
+      <HomeownerShell projectId={membership.project_id} projectName={projectName} userEmail={user.email ?? ""}>
         {children}
       </HomeownerShell>
     </>

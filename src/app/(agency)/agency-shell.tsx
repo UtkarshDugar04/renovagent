@@ -29,9 +29,11 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Logo } from "@/components/shared/Logo";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { logout } from "@/app/auth/login/actions";
+import { usePendingHitlCount } from "@/lib/hooks/use-pending-hitl-count";
 
 const PROJECT_NAV = [
   { segment: "overview", label: "Overview", icon: LayoutDashboard },
@@ -51,6 +53,7 @@ export function AgencyShell({
 }) {
   const pathname = usePathname();
   const projectId = pathname?.match(/^\/projects\/([^/]+)/)?.[1];
+  const pendingHitlCount = usePendingHitlCount(projectId, projectId ? `/projects/${projectId}/escalations` : "");
 
   return (
     <SidebarProvider>
@@ -85,11 +88,17 @@ export function AgencyShell({
                 <SidebarMenu>
                   {PROJECT_NAV.map((item) => {
                     const href = `/projects/${projectId}/${item.segment}`;
+                    const showBadge = item.segment === "escalations" && pendingHitlCount > 0;
                     return (
                       <SidebarMenuItem key={item.segment}>
                         <SidebarMenuButton isActive={pathname === href} render={<Link href={href} />}>
                           <item.icon />
-                          <span>{item.label}</span>
+                          <span className="flex-1">{item.label}</span>
+                          {showBadge && (
+                            <Badge variant="secondary" className="bg-accent/15 text-accent">
+                              {pendingHitlCount}
+                            </Badge>
+                          )}
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     );

@@ -19,6 +19,38 @@ interface HitlRequest {
   options: HitlOption[];
 }
 
+// Yoxa composes `description` as free-text prose, but the agent is
+// instructed to organize it by domain/candidate with short ALL-CAPS
+// section headers on their own line (confirmed live: "FAMILY / HOUSEHOLD",
+// "SPACE", "PREFERENCES", ...). There's no schema for this — it's prose —
+// so this recovers that structure heuristically instead of rendering one
+// dense paragraph. Falls back to plain text when nothing header-shaped is
+// found, so content from a differently-shaped checkpoint (or no structure
+// at all) still renders correctly.
+const HEADER_LINE = /^[A-Z][A-Z0-9 /&'-]{1,48}$/;
+
+function parseSections(description: string): { heading: string | null; body: string }[] {
+  const lines = description.split("\n").map((l) => l.trim()).filter(Boolean);
+  const sections: { heading: string | null; body: string[] }[] = [];
+  let current: { heading: string | null; body: string[] } = { heading: null, body: [] };
+
+  for (const line of lines) {
+    const looksLikeHeader = HEADER_LINE.test(line) && !line.endsWith(".") && line.split(" ").length <= 6;
+    if (looksLikeHeader) {
+      if (current.heading || current.body.length) sections.push(current);
+      current = { heading: line, body: [] };
+    } else {
+      current.body.push(line);
+    }
+  }
+  if (current.heading || current.body.length) sections.push(current);
+  return sections.map((s) => ({ heading: s.heading, body: s.body.join(" ") }));
+}
+
+function titleCase(s: string) {
+  return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function HitlRequestCard({ projectId, request }: { projectId: string; request: HitlRequest }) {
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [overrideText, setOverrideText] = useState("");
@@ -54,6 +86,9 @@ export function HitlRequestCard({ projectId, request }: { projectId: string; req
     );
   }
 
+  const sections = request.description ? parseSections(request.description) : [];
+  const structured = sections.filter((s) => s.heading).length >= 2;
+
   return (
     <Card className="border-0 border-l-2 border-l-primary">
       <CardHeader>
@@ -61,23 +96,48 @@ export function HitlRequestCard({ projectId, request }: { projectId: string; req
           <Sparkles className="h-4 w-4 text-primary" />
           <CardTitle className="text-base">{request.title}</CardTitle>
         </div>
-        {request.description && (
-          <p className="text-sm text-muted-foreground">{request.description}</p>
-        )}
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex flex-wrap gap-2">
+      <CardContent className="space-y-4">
+        {structured ? (
+          <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
+            {sections.map((s, i) =>
+              s.heading ? (
+                <div key={i}>
+                  <p className="text-[10px] font-semibold tracking-wide text-muted-foreground/80 uppercase">
+                    {titleCase(s.heading)}
+                  </p>
+                  <p className="mt-0.5 text-sm text-foreground/90">{s.body}</p>
+                </div>
+              ) : s.body ? (
+                <p key={i} className="text-sm text-muted-foreground italic">{s.body}</p>
+              ) : null
+            )}
+          </div>
+        ) : (
+          request.description && (
+            <p className="text-sm text-muted-foreground">{request.description}</p>
+          )
+        )}
+
+        <div className="space-y-2">
           {request.options.map((o) => (
-            <Button
+            <button
               key={o.option_id}
-              variant="outline"
+              type="button"
               disabled={submitting !== null}
               onClick={() => submit({ selectedOptionId: o.option_id })}
-              title={o.description}
+              className="flex w-full items-start justify-between gap-3 rounded-lg border border-border px-3 py-2.5 text-left text-sm transition-colors hover:border-primary/50 hover:bg-muted/50 disabled:opacity-60"
             >
-              {submitting === o.option_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              {o.title}
-            </Button>
+              <span>
+                <span className="font-medium text-foreground">{o.title}</span>
+                {o.description && (
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{o.description}</span>
+                )}
+              </span>
+              {submitting === o.option_id && (
+                <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+              )}
+            </button>
           ))}
         </div>
 

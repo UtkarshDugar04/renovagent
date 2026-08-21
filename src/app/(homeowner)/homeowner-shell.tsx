@@ -24,9 +24,11 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Logo } from "@/components/shared/Logo";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { logout } from "@/app/auth/login/actions";
+import { usePendingHitlCount } from "@/lib/hooks/use-pending-hitl-count";
 
 const NAV = [
   { href: "/conversation", label: "Talk to Renovagent", icon: MessagesSquare },
@@ -37,14 +39,17 @@ const NAV = [
 
 export function HomeownerShell({
   children,
+  projectId,
   projectName,
   userEmail,
 }: {
   children: React.ReactNode;
+  projectId: string;
   projectName: string;
   userEmail: string;
 }) {
   const pathname = usePathname();
+  const pendingHitlCount = usePendingHitlCount(projectId, "/questions");
 
   return (
     <SidebarProvider>
@@ -61,11 +66,17 @@ export function HomeownerShell({
               <SidebarMenu>
                 {NAV.map((item) => {
                   const active = pathname?.startsWith(item.href) ?? false;
+                  const showBadge = item.href === "/questions" && pendingHitlCount > 0;
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton isActive={active} render={<Link href={item.href} />}>
                         <item.icon />
-                        <span>{item.label}</span>
+                        <span className="flex-1">{item.label}</span>
+                        {showBadge && (
+                          <Badge variant="secondary" className="bg-accent/15 text-accent">
+                            {pendingHitlCount}
+                          </Badge>
+                        )}
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   );
