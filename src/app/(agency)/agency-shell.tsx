@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Logo } from "@/components/shared/Logo";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { logout } from "@/app/auth/login/actions";
 
 const PROJECT_NAV = [
@@ -106,6 +107,7 @@ export function AgencyShell({
               </AvatarFallback>
             </Avatar>
             <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{userName}</span>
+            <ThemeToggle />
             <form action={logout}>
               <button
                 type="submit"
