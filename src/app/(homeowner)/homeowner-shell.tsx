@@ -7,9 +7,7 @@ import {
   BrainCircuit,
   ListTodo,
   LayoutGrid,
-  Activity,
   LogOut,
-  Phone,
 } from "lucide-react";
 import {
   Sidebar,
@@ -30,12 +28,10 @@ import { Logo } from "@/components/shared/Logo";
 import { logout } from "@/app/auth/login/actions";
 
 const NAV = [
-  { href: "/conversation", label: "Conversation", icon: MessagesSquare },
-  { href: "/call", label: "Call", icon: Phone },
+  { href: "/conversation", label: "Talk to Renovagent", icon: MessagesSquare },
   { href: "/understanding", label: "Understanding", icon: BrainCircuit },
   { href: "/questions", label: "Questions & Decisions", icon: ListTodo },
   { href: "/design", label: "Design", icon: LayoutGrid },
-  { href: "/activity", label: "Activity", icon: Activity },
 ] as const;
 
 export function HomeownerShell({
