@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateConversationBrief } from "@/lib/groq/generate-brief";
+import { markdownToPdf } from "@/lib/gemini/markdown-to-pdf";
 import { triggerYoxaWorkflow } from "@/lib/yoxa/trigger";
 
 export interface SendToYoxaResult {
@@ -52,27 +53,22 @@ export async function sendToYoxa(
   }
 
   let brief: { markdown: string; messageCount: number };
+  let briefPdf: Buffer;
   try {
     brief = await generateConversationBrief(supabase, projectId);
+    briefPdf = await markdownToPdf(brief.markdown);
   } catch (err) {
     await releaseClaim();
     return { ok: false, error: err instanceof Error ? err.message : "Failed to generate the conversation brief" };
   }
 
-  // Sent as plain markdown, not PDF: markdownToPdf (pdfkit) hit an ENOENT
-  // on Vercel's serverless bundler for its font data files — a real bug,
-  // not a Yoxa-side problem, and not worth gambling more time on mid-test.
-  // This also resolves the open question of whether Yoxa's trigger
-  // actually requires PDF specifically, or accepts any file — the
-  // no-attachment fallback in trigger.ts already proved it accepts plain
-  // text, so markdown should be no different.
   const result = await triggerYoxaWorkflow({
     projectId,
     senderRole,
     messageText: "Conversation brief attached — see file.",
     attachment: {
-      filename: "conversation-brief.md",
-      content: new Blob([brief.markdown], { type: "text/markdown" }),
+      filename: "conversation-brief.pdf",
+      content: new Blob([new Uint8Array(briefPdf)], { type: "application/pdf" }),
     },
   });
 
