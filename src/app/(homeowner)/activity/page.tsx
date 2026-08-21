@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { History } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 export default async function ActivityPage() {
   const supabase = await createClient();
@@ -31,16 +32,13 @@ export default async function ActivityPage() {
       </div>
 
       {(!events || events.length === 0) && (
-        <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
-          <History className="h-5 w-5 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Nothing to show yet.</p>
-        </div>
+        <EmptyState icon={History} description="Nothing to show yet." />
       )}
 
-      <ol className="space-y-3 border-l border-white/10 pl-4">
+      <ol className="space-y-3 border-l border-border pl-4">
         {(events ?? []).map((e) => (
           <li key={e.id} className="relative">
-            <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-primary glow-primary" />
+            <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-primary" />
             <p className="text-sm text-foreground/90">{e.activity_summary}</p>
             <p className="text-xs text-muted-foreground">
               {new Date(e.created_at).toLocaleString()}

@@ -4,8 +4,9 @@ import { useState, useTransition } from "react";
 import { FileText, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { createHandoffBrief, approveAndSendHandoff } from "./actions";
 
 interface HandoffRecord {
@@ -35,35 +36,27 @@ export function HandoffPanel({
             await createHandoffBrief(projectId);
           })
         }
-        className="glow-primary"
       >
         <Sparkles className="h-4 w-4" />
         Generate handoff brief
       </Button>
 
       {records.length === 0 && (
-        <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
-          <FileText className="h-5 w-5 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No handoff brief generated yet.</p>
-        </div>
+        <EmptyState icon={FileText} description="No handoff brief generated yet." />
       )}
 
       {records.map((r) => (
-        <Card key={r.id} className="glass border-0">
+        <Card key={r.id}>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
-              <Badge
-                className={`text-xs font-normal ${
-                  r.status === "sent" ? "bg-accent/15 text-accent" : "bg-primary/10 text-primary"
-                }`}
-              >
+              <StatusBadge tone={r.status === "sent" ? "positive" : "progress"} className="text-xs">
                 {r.status}
-              </Badge>
+              </StatusBadge>
               <span className="text-xs text-muted-foreground">
                 {new Date(r.created_at).toLocaleString()}
               </span>
             </div>
-            <pre className="whitespace-pre-wrap rounded-lg bg-black/30 p-3 font-mono text-xs text-foreground/80">
+            <pre className="whitespace-pre-wrap rounded-lg bg-neutral-900 p-3 font-mono text-xs text-neutral-100">
               {r.brief}
             </pre>
 

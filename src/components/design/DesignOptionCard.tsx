@@ -48,7 +48,7 @@ export function DesignOptionCard({
   }
 
   return (
-    <Card className={`glass border-white/10 ${option.status === "rejected" ? "opacity-50" : ""}`}>
+    <Card className={option.status === "rejected" ? "opacity-50" : ""}>
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-base">{option.label}</CardTitle>
@@ -86,7 +86,7 @@ export function DesignOptionCard({
           </p>
         )}
 
-        <div className="border-t border-white/10 pt-3">
+        <div className="border-t border-border pt-3">
           {isPending ? (
             <p className="text-xs text-muted-foreground">Recording your feedback…</p>
           ) : submitted ? (

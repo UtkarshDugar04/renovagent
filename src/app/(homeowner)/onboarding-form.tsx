@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card } from "@/components/ui/card";
+import { Logo } from "@/components/shared/Logo";
 import { createProject } from "./actions";
 
 export function OnboardingForm() {
@@ -17,9 +18,7 @@ export function OnboardingForm() {
     <div className="relative flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl glass glow-primary">
-            <Sparkles className="h-5 w-5 text-primary" />
-          </div>
+          <Logo size="sm" className="mb-3" />
           <h1 className="text-xl font-semibold tracking-tight">
             Let&apos;s start with the basics
           </h1>
@@ -28,8 +27,9 @@ export function OnboardingForm() {
           </p>
         </div>
 
+        <Card className="p-6">
         <form
-          className="glass space-y-4 rounded-2xl p-6"
+          className="space-y-4"
           action={(formData) => {
             setError(null);
             startTransition(async () => {
@@ -73,10 +73,11 @@ export function OnboardingForm() {
             A rough starting range is fine — this becomes an envelope, not a fixed number.
           </p>
 
-          <Button type="submit" disabled={isPending} className="w-full glow-primary">
+          <Button type="submit" disabled={isPending} className="w-full">
             {isPending ? "Creating…" : "Start"}
           </Button>
         </form>
+        </Card>
       </div>
     </div>
   );

@@ -2,6 +2,8 @@ import { Users, Home, Palette, Wallet, ShieldAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { Domain } from "@/lib/types/domain";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { evidenceStatusTone } from "@/lib/status-styles";
 import {
   Table,
   TableBody,
@@ -19,22 +21,11 @@ const DOMAIN_META: Record<Domain, { label: string; icon: React.ElementType }> = 
   constraint: { label: "Constraint", icon: ShieldAlert },
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  explicit: "bg-muted text-muted-foreground",
-  verified: "bg-accent/15 text-accent",
-  inferred: "bg-primary/10 text-primary",
-  assumed: "bg-secondary text-secondary-foreground",
-  unresolved: "bg-muted text-muted-foreground/70",
-  conflicted: "bg-destructive/15 text-destructive",
-  stale: "bg-muted text-muted-foreground/50 line-through",
-  superseded: "bg-muted text-muted-foreground/50 line-through",
-};
-
 const CONFIDENCE_DOT: Record<string, string> = {
   unknown: "bg-muted-foreground/40",
   low: "bg-accent/50",
   medium: "bg-accent/80",
-  high: "bg-accent glow-accent",
+  high: "bg-accent",
 };
 
 export default async function ProjectDnaPage({
@@ -96,7 +87,7 @@ export default async function ProjectDnaPage({
               {DOMAIN_META[domain].label} ({items.length})
             </h2>
             {domainArtifacts.map((artifact) => (
-              <div key={artifact.id} className="glass mb-3 overflow-hidden rounded-xl border-0">
+              <div key={artifact.id} className="mb-3 overflow-hidden rounded-xl border border-border bg-card">
                 <div className="flex items-center justify-between px-3 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                   <span>{artifact.artifact_type}</span>
                   <span>{new Date(artifact.created_at).toLocaleString()}</span>
@@ -117,10 +108,10 @@ export default async function ProjectDnaPage({
             {items.length === 0 ? (
               <p className="text-xs text-muted-foreground">No evidence yet.</p>
             ) : (
-              <div className="glass overflow-hidden rounded-xl border-0">
+              <div className="overflow-hidden rounded-xl border border-border bg-card">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-white/10 hover:bg-transparent">
+                    <TableRow className="border-border hover:bg-transparent">
                       <TableHead>Statement</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Status</TableHead>
@@ -131,13 +122,18 @@ export default async function ProjectDnaPage({
                   </TableHeader>
                   <TableBody>
                     {items.map((e) => (
-                      <TableRow key={e.id} className="border-white/5 hover:bg-white/5">
+                      <TableRow key={e.id} className="border-border hover:bg-muted/50">
                         <TableCell className="text-foreground/90">{e.statement}</TableCell>
                         <TableCell className="text-muted-foreground">{e.evidence_type}</TableCell>
                         <TableCell>
-                          <Badge className={`text-[10px] font-normal ${STATUS_STYLE[e.status]}`}>
+                          <StatusBadge
+                            tone={evidenceStatusTone(e.status)}
+                            className={
+                              e.status === "stale" || e.status === "superseded" ? "text-[10px] line-through" : "text-[10px]"
+                            }
+                          >
                             {e.status}
-                          </Badge>
+                          </StatusBadge>
                         </TableCell>
                         <TableCell>
                           <span
@@ -165,7 +161,7 @@ export default async function ProjectDnaPage({
         </h2>
         <div className="space-y-1">
           {(constraints ?? []).map((c) => (
-            <div key={c.id} className="glass rounded-lg px-3 py-2 text-xs">
+            <div key={c.id} className="rounded-lg border border-border bg-card px-3 py-2 text-xs">
               <Badge variant="secondary" className="mr-1.5 text-[10px] font-normal">
                 {c.hardness}
               </Badge>
@@ -184,7 +180,7 @@ export default async function ProjectDnaPage({
         </h2>
         <div className="space-y-1">
           {(budgetLines ?? []).map((b) => (
-            <div key={b.id} className="glass rounded-lg px-3 py-2 text-xs text-foreground/90">
+            <div key={b.id} className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground/90">
               {b.category} — {b.priority_tier} — probable ₹{b.probable_low ?? "?"}–₹{b.probable_high ?? "?"}
               {b.confirmed && ` — confirmed ₹${b.confirmed}`}
             </div>
@@ -201,7 +197,7 @@ export default async function ProjectDnaPage({
         </h2>
         <div className="space-y-1">
           {(assumptions ?? []).map((a) => (
-            <div key={a.id} className="glass rounded-lg border-primary/20 px-3 py-2 text-xs">
+            <div key={a.id} className="rounded-lg border border-primary/20 bg-card px-3 py-2 text-xs">
               {a.statement} {a.verification_required && "— requires verification"}
               {a.impact_if_wrong && (
                 <span className="block text-muted-foreground">If wrong: {a.impact_if_wrong}</span>
@@ -225,7 +221,7 @@ export default async function ProjectDnaPage({
               className={`rounded-lg px-3 py-2 text-xs ${
                 c.status === "open"
                   ? "border border-destructive/30 bg-destructive/10 text-destructive"
-                  : "glass text-muted-foreground"
+                  : "border border-border bg-card text-muted-foreground"
               }`}
             >
               {c.reason} — {c.status}

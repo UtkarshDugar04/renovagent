@@ -2,12 +2,9 @@ import { LayoutGrid, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const STATUS_STYLE: Record<string, string> = {
-  proposed: "bg-primary/10 text-primary",
-  validated: "bg-accent/15 text-accent",
-  rejected: "bg-destructive/10 text-destructive",
-};
+import { EmptyState } from "@/components/shared/EmptyState";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { designOptionTone } from "@/lib/status-styles";
 
 export default async function DesignReviewPage({
   params,
@@ -38,12 +35,7 @@ export default async function DesignReviewPage({
   }
 
   if (!options || options.length === 0) {
-    return (
-      <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
-        <LayoutGrid className="h-5 w-5 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">No design options generated yet.</p>
-      </div>
-    );
+    return <EmptyState icon={LayoutGrid} description="No design options generated yet." />;
   }
 
   return (
@@ -51,14 +43,14 @@ export default async function DesignReviewPage({
       {options.map((o) => {
         const optionValidations = validationsByTarget.get(o.id) ?? [];
         return (
-          <Card key={o.id} className="glass border-0">
+          <Card key={o.id}>
             <CardHeader>
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-base">{o.label}</CardTitle>
                 <div className="flex items-center gap-2">
-                  <Badge className={`text-xs font-normal ${STATUS_STYLE[o.status]}`}>
+                  <StatusBadge tone={designOptionTone(o.status)} className="text-xs">
                     {o.status}
-                  </Badge>
+                  </StatusBadge>
                   {!o.visible_to_homeowner && (
                     <Badge variant="secondary" className="gap-1 text-xs font-normal">
                       <EyeOff className="h-3 w-3" />
@@ -75,7 +67,7 @@ export default async function DesignReviewPage({
               </p>
 
               {optionValidations.length > 0 && (
-                <div className="space-y-1 border-t border-white/10 pt-2">
+                <div className="space-y-1 border-t border-border pt-2">
                   <p className="text-xs font-medium text-foreground/80">Validation history</p>
                   {optionValidations.map((v) => (
                     <div key={v!.id} className="text-xs text-muted-foreground">

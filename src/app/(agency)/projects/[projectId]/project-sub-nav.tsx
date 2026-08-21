@@ -17,7 +17,7 @@ export function ProjectSubNav({ projectId }: { projectId: string }) {
   const pathname = usePathname();
 
   return (
-    <nav className="glass flex w-fit gap-1 rounded-full p-1">
+    <nav className="flex w-fit gap-1 rounded-full border border-border bg-card p-1">
       {NAV.map((item) => {
         const href = `/projects/${projectId}/${item.segment}`;
         const active = pathname === href;

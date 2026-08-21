@@ -27,7 +27,7 @@ export function EscalationResolutionForm({
   const [isPending, startTransition] = useTransition();
 
   return (
-    <Card className="glass border-accent/20">
+    <Card className="border-accent/20">
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">

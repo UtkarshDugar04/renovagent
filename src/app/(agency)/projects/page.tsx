@@ -3,6 +3,7 @@ import { FolderOpen, ChevronRight, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 export default async function ProjectListPage() {
   const supabase = await createClient();
@@ -56,10 +57,7 @@ export default async function ProjectListPage() {
       <h1 className="text-lg font-semibold tracking-tight">Projects</h1>
 
       {(!projects || projects.length === 0) && (
-        <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
-          <FolderOpen className="h-5 w-5 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No projects yet.</p>
-        </div>
+        <EmptyState icon={FolderOpen} description="No projects yet." />
       )}
 
       <div className="space-y-2">
@@ -69,7 +67,7 @@ export default async function ProjectListPage() {
 
           return (
             <Link key={p.id} href={`/projects/${p.id}/overview`}>
-              <Card className="glass border-0 transition-colors hover:bg-white/5">
+              <Card className="transition-colors hover:bg-muted/50">
                 <CardContent className="flex items-center justify-between px-4 py-3.5">
                   <div>
                     <p className="text-sm font-medium">{p.name}</p>

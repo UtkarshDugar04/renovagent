@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { answerQuestion } from "@/app/(homeowner)/questions/actions";
+import { severityTone, TONE_BORDER_CLASSES } from "@/lib/status-styles";
 
 interface Question {
   id: string;
@@ -15,22 +16,13 @@ interface Question {
   severity: string;
 }
 
-const SEVERITY_BORDER: Record<string, string> = {
-  e0: "border-white/10",
-  e1: "border-white/10",
-  e2: "border-accent/30",
-  e3: "border-accent/40",
-  e4: "border-destructive/40",
-  e5: "border-destructive/50",
-};
-
 export function QuestionRow({ question, projectId }: { question: Question; projectId: string }) {
   const [answer, setAnswer] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   return (
-    <Card className={`glass border ${SEVERITY_BORDER[question.severity] ?? "border-white/10"}`}>
+    <Card className={`border ${TONE_BORDER_CLASSES[severityTone(question.severity)]}`}>
       <CardContent className="p-3">
         <button
           className="flex w-full items-center justify-between gap-2 text-left text-sm"

@@ -5,6 +5,7 @@ import { MeaningVerificationCard } from "@/components/decisions/MeaningVerificat
 import { QuestionRow } from "@/components/decisions/QuestionRow";
 import { ApprovalRequestCard } from "@/components/decisions/ApprovalRequestCard";
 import { EscalationCard } from "@/components/decisions/EscalationCard";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 export default async function QuestionsPage() {
   const supabase = await createClient();
@@ -75,10 +76,7 @@ export default async function QuestionsPage() {
       </div>
 
       {!hasAnything && (
-        <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
-          <CheckCircle2 className="h-5 w-5 text-accent" />
-          <p className="text-sm text-muted-foreground">Nothing waiting on you right now.</p>
-        </div>
+        <EmptyState icon={CheckCircle2} iconClassName="text-accent" description="Nothing waiting on you right now." />
       )}
 
       {showMeaningVerification && <MeaningVerificationCard projectId={projectId} />}

@@ -16,7 +16,7 @@ export function ApprovalRequestCard({ approval }: { approval: Approval }) {
   const [isPending, startTransition] = useTransition();
 
   return (
-    <Card className="glass glow-accent border-accent/30">
+    <Card className="border-accent/30">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Gavel className="h-4 w-4 text-accent" />

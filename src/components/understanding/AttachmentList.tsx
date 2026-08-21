@@ -51,7 +51,7 @@ export function AttachmentList({ projectId, initialAttachments }: { projectId: s
       {attachments.map((a) => (
         <div
           key={a.id}
-          className="glass flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-muted-foreground"
+          className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground"
         >
           <a href={a.url ?? "#"} target="_blank" rel="noreferrer" className="transition-colors hover:text-foreground">
             {a.label}

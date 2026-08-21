@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Domain } from "@/lib/types/domain";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { readinessTone, TONE_CLASSES } from "@/lib/status-styles";
 
 const DOMAIN_LABELS: Record<Domain, string> = {
   family: "Family",
@@ -11,14 +12,6 @@ const DOMAIN_LABELS: Record<Domain, string> = {
   preference: "Preference",
   budget: "Budget",
   constraint: "Constraint",
-};
-
-const STATE_STYLE: Record<string, string> = {
-  not_started: "bg-muted text-muted-foreground",
-  discovery_in_progress: "bg-muted text-muted-foreground",
-  partially_understood: "bg-accent/10 text-accent",
-  sufficient_for_validation: "bg-primary/10 text-primary",
-  validated: "bg-accent/15 text-accent",
 };
 
 export default async function ProjectOverviewPage({
@@ -85,7 +78,7 @@ export default async function ProjectOverviewPage({
             return (
               <Card
                 key={d}
-                className={`glass border-0 text-center ${STATE_STYLE[r?.state ?? "not_started"]}`}
+                className={`border-0 text-center ${TONE_CLASSES[readinessTone(r?.state ?? "not_started")]}`}
                 title={r?.reason ?? ""}
               >
                 <CardContent className="px-2 py-3">
@@ -102,12 +95,12 @@ export default async function ProjectOverviewPage({
 
       <section>
         {yoxaRun ? (
-          <div className="glass flex items-center gap-2 rounded-2xl border-accent/20 px-4 py-2.5 text-sm text-accent">
+          <div className="flex items-center gap-2 rounded-2xl border border-accent/20 bg-accent/5 px-4 py-2.5 text-sm text-accent">
             <Send className="h-4 w-4 shrink-0" />
             Sent to Yoxa on {new Date(yoxaRun.created_at).toLocaleDateString()} — planning and design work is underway.
           </div>
         ) : (
-          <div className="glass flex items-center justify-between gap-2 rounded-2xl px-4 py-2.5 text-sm text-muted-foreground">
+          <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-2.5 text-sm text-muted-foreground">
             <span>Not yet sent to Yoxa.</span>
             <Link href={`/projects/${projectId}/call`} className="text-primary underline underline-offset-2">
               Go to the call tab
@@ -136,7 +129,7 @@ export default async function ProjectOverviewPage({
           </h2>
           <div className="space-y-1">
             {(openQuestions ?? []).map((q) => (
-              <Card key={q.id} className="glass border-0">
+              <Card key={q.id}>
                 <CardContent className="px-3 py-2 text-xs">{q.question_text}</CardContent>
               </Card>
             ))}
@@ -152,7 +145,7 @@ export default async function ProjectOverviewPage({
           </h2>
           <div className="space-y-1">
             {(openConflicts ?? []).map((c) => (
-              <Card key={c.id} className="glass border-destructive/20">
+              <Card key={c.id} className="border-destructive/20 bg-destructive/5">
                 <CardContent className="px-3 py-2 text-xs text-destructive">
                   {c.reason}
                 </CardContent>
@@ -170,8 +163,8 @@ export default async function ProjectOverviewPage({
           </h2>
           <div className="space-y-1">
             {(openEscalations ?? []).map((e) => (
-              <Card key={e.id} className="glass border-accent/20">
-                <CardContent className="px-3 py-2 text-xs text-accent-foreground">
+              <Card key={e.id} className="border-accent/20 bg-accent/5">
+                <CardContent className="px-3 py-2 text-xs text-accent">
                   {e.question ?? e.trigger}{" "}
                   <Badge variant="secondary" className="ml-1 text-[10px] font-normal">
                     needs {e.required_authority.replace("d3_", "").replace("d4_", "")}

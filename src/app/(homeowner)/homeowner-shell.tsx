@@ -8,7 +8,6 @@ import {
   ListTodo,
   LayoutGrid,
   Activity,
-  Sparkles,
   LogOut,
   Phone,
 } from "lucide-react";
@@ -27,6 +26,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Logo } from "@/components/shared/Logo";
 import { logout } from "@/app/auth/login/actions";
 
 const NAV = [
@@ -53,14 +53,9 @@ export function HomeownerShell({
     <SidebarProvider>
       <Sidebar>
         <SidebarHeader className="px-3 py-4">
-          <div className="flex items-center gap-2 px-1">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg glass glow-primary">
-              <Sparkles className="h-4 w-4 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-gradient">Renovagent</p>
-              <p className="truncate text-xs text-muted-foreground">{projectName}</p>
-            </div>
+          <div className="px-1">
+            <Logo size="sm" />
+            <p className="mt-1 truncate pl-1 text-xs text-muted-foreground">{projectName}</p>
           </div>
         </SidebarHeader>
         <SidebarContent>
@@ -105,7 +100,7 @@ export function HomeownerShell({
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-14 items-center gap-2 border-b border-white/10 px-4">
+        <header className="flex h-14 items-center gap-2 border-b border-border px-4">
           <SidebarTrigger />
         </header>
         <main className="flex-1 overflow-y-auto p-6">

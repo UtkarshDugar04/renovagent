@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, User } from "lucide-react";
+import { Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { ChatBubble } from "@/components/shared/ChatBubble";
 import { AttachmentButton, type UploadedAttachment } from "./AttachmentButton";
 
 interface Message {
@@ -96,54 +98,25 @@ export function ConversationPanel({
     <div className="flex h-[calc(100vh-140px)] flex-col">
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         {messages.length === 0 && (
-          <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
-            <Sparkles className="h-5 w-5 text-primary" />
-            <p className="text-sm text-muted-foreground">
-              Tell Renovagent about your home and what&apos;s not working — start anywhere.
-            </p>
-          </div>
+          <EmptyState
+            icon={Sparkles}
+            iconClassName="text-primary"
+            description="Tell Renovagent about your home and what's not working — start anywhere."
+          />
         )}
-        {messages.map((m) => {
-          const isHomeowner = m.sender_role === "homeowner";
-          return (
-            <div
-              key={m.id}
-              className={`flex items-end gap-2 ${isHomeowner ? "justify-end" : "justify-start"}`}
-            >
-              {!isHomeowner && (
-                <Avatar className="h-7 w-7 shrink-0">
-                  <AvatarFallback className="bg-primary/20">
-                    <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  </AvatarFallback>
-                </Avatar>
-              )}
-              <div
-                className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                  isHomeowner
-                    ? "bg-primary text-primary-foreground glow-primary"
-                    : "glass text-foreground"
-                }`}
-              >
-                {m.text}
-              </div>
-              {isHomeowner && (
-                <Avatar className="h-7 w-7 shrink-0">
-                  <AvatarFallback className="bg-secondary">
-                    <User className="h-3.5 w-3.5 text-secondary-foreground" />
-                  </AvatarFallback>
-                </Avatar>
-              )}
-            </div>
-          );
-        })}
+        {messages.map((m) => (
+          <ChatBubble key={m.id} self={m.sender_role === "homeowner"}>
+            {m.text}
+          </ChatBubble>
+        ))}
         {sending && (
           <div className="flex items-end gap-2">
             <Avatar className="h-7 w-7 shrink-0">
-              <AvatarFallback className="bg-primary/20">
+              <AvatarFallback className="bg-primary/10">
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
               </AvatarFallback>
             </Avatar>
-            <div className="glass flex items-center gap-1 rounded-2xl px-4 py-2.5">
+            <div className="flex items-center gap-1 rounded-2xl border border-border bg-card px-4 py-2.5">
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
@@ -171,7 +144,7 @@ export function ConversationPanel({
           {pendingAttachments.map((a) => (
             <span
               key={a.id}
-              className="glass rounded-full px-2.5 py-1 text-xs text-muted-foreground"
+              className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground"
             >
               {a.label}
             </span>
@@ -179,7 +152,7 @@ export function ConversationPanel({
         </div>
       )}
 
-      <div className="glass flex items-center gap-2 rounded-full border border-white/10 p-1.5">
+      <div className="flex items-center gap-2 rounded-full border border-border bg-card p-1.5">
         <AttachmentButton
           projectId={projectId}
           onUploaded={(a) => setPendingAttachments((prev) => [...prev, a])}
@@ -200,7 +173,7 @@ export function ConversationPanel({
           size="icon"
           onClick={send}
           disabled={sending || (!draft.trim() && pendingAttachments.length === 0)}
-          className="h-9 w-9 shrink-0 rounded-full glow-primary"
+          className="h-9 w-9 shrink-0 rounded-full"
         >
           <Send className="h-4 w-4" />
         </Button>

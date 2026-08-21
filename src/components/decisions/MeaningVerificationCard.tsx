@@ -15,7 +15,7 @@ export function MeaningVerificationCard({ projectId }: { projectId: string }) {
   const [isPending, startTransition] = useTransition();
 
   return (
-    <Card className="glass glow-primary border-primary/20">
+    <Card className="border-primary/20">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
@@ -34,7 +34,6 @@ export function MeaningVerificationCard({ projectId }: { projectId: string }) {
         <Button
           disabled={isPending}
           onClick={() => startTransition(async () => { await confirmMeaning(projectId); })}
-          className="glow-primary"
         >
           <CheckCircle2 className="h-4 w-4" />
           Yes, this is right

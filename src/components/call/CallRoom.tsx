@@ -9,7 +9,6 @@ import {
   Video,
   VideoOff,
   Sparkles,
-  User,
   Radio,
   Send,
   CheckCircle2,
@@ -18,6 +17,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { ChatBubble } from "@/components/shared/ChatBubble";
 import { createClient } from "@/lib/supabase/client";
 import { useCallSession } from "@/lib/webrtc/useCallSession";
 import { useLiveTranscription } from "@/lib/webrtc/useLiveTranscription";
@@ -251,8 +252,8 @@ export function CallRoom({
       )}
       <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
       <div className="space-y-3">
-        <div className="glass overflow-hidden rounded-2xl">
-          <div className="relative grid grid-cols-2 gap-px bg-white/5">
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="relative grid grid-cols-2 gap-px bg-border">
             <VideoTile
               ref={localVideoRef}
               label="You"
@@ -269,14 +270,14 @@ export function CallRoom({
             />
           </div>
 
-          <div className="flex items-center justify-between gap-2 border-t border-white/10 p-3">
+          <div className="flex items-center justify-between gap-2 border-t border-border p-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <StatusDot state={connectionState} />
               {mediaError ?? statusLabel(connectionState)}
             </div>
             <div className="flex items-center gap-2">
               {!inCall ? (
-                <Button onClick={handleJoin} disabled={joining} className="glow-primary">
+                <Button onClick={handleJoin} disabled={joining}>
                   <Phone className="h-4 w-4" />
                   {hasOtherActiveSession ? "Join call" : "Start call"}
                 </Button>
@@ -321,19 +322,18 @@ export function CallRoom({
       <div className="flex h-[560px] flex-col">
         <div className="flex-1 space-y-3 overflow-y-auto pb-3">
           {messages.length === 0 && (
-            <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
-              <Radio className="h-5 w-5 text-primary" />
-              <p className="text-sm text-muted-foreground">
-                Start the call — Renovagent listens in and drops questions here as things come up.
-              </p>
-            </div>
+            <EmptyState
+              icon={Radio}
+              iconClassName="text-primary"
+              description="Start the call — Renovagent listens in and drops questions here as things come up."
+            />
           )}
           {messages.map((m) => (
             <FeedRow key={m.id} message={m} />
           ))}
           {interimText && (
-            <div className="flex items-end justify-end gap-2 opacity-50">
-              <div className="max-w-[75%] rounded-2xl bg-primary/40 px-4 py-2 text-sm italic text-primary-foreground">
+            <div className="flex items-end justify-end gap-2 opacity-60">
+              <div className="max-w-[75%] rounded-2xl bg-primary px-4 py-2 text-sm italic text-primary-foreground">
                 {interimText}…
               </div>
             </div>
@@ -342,7 +342,7 @@ export function CallRoom({
           <div ref={feedBottomRef} />
         </div>
 
-        <div className="glass flex items-center gap-2 rounded-full border border-white/10 p-1.5">
+        <div className="flex items-center gap-2 rounded-full border border-border bg-card p-1.5">
           <input
             value={typedDraft}
             onChange={(e) => setTypedDraft(e.target.value)}
@@ -355,7 +355,7 @@ export function CallRoom({
             placeholder="Type instead of speaking…"
             className="flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
           />
-          <Button size="icon" onClick={sendTyped} disabled={!typedDraft.trim()} className="h-9 w-9 shrink-0 rounded-full glow-primary">
+          <Button size="icon" onClick={sendTyped} disabled={!typedDraft.trim()} className="h-9 w-9 shrink-0 rounded-full">
             <Sparkles className="h-4 w-4" />
           </Button>
         </div>
@@ -388,7 +388,7 @@ function SendToYoxaPanel({
 }) {
   if (sentToYoxa) {
     return (
-      <div className="glass flex items-center gap-2 rounded-2xl border-accent/20 px-4 py-3 text-sm text-accent">
+      <div className="flex items-center gap-2 rounded-2xl border border-accent/20 bg-accent/5 px-4 py-3 text-sm text-accent">
         <CheckCircle2 className="h-4 w-4 shrink-0" />
         Sent to Yoxa — planning and design work has started.
       </div>
@@ -397,7 +397,7 @@ function SendToYoxaPanel({
 
   if (confirming) {
     return (
-      <div className="glass space-y-2 rounded-2xl border-primary/20 px-4 py-3">
+      <div className="space-y-2 rounded-2xl border border-primary/20 bg-card px-4 py-3">
         <div className="flex items-start gap-2 text-sm text-foreground/90">
           <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <span>
@@ -407,7 +407,7 @@ function SendToYoxaPanel({
         </div>
         {error && <p className="text-xs text-destructive">{error}</p>}
         <div className="flex gap-2">
-          <Button size="sm" onClick={onConfirm} disabled={sending} className="glow-primary">
+          <Button size="sm" onClick={onConfirm} disabled={sending}>
             <Send className="h-3.5 w-3.5" />
             {sending ? "Sending…" : "Yes, send to Yoxa"}
           </Button>
@@ -420,7 +420,7 @@ function SendToYoxaPanel({
   }
 
   return (
-    <div className="glass flex items-center justify-between gap-2 rounded-2xl px-4 py-3">
+    <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-3">
       <p className="text-sm text-muted-foreground">
         {inCall
           ? "Send to Yoxa becomes available once the call has ended."
@@ -440,11 +440,11 @@ function ThinkingBubble() {
   return (
     <div className="flex items-end gap-2">
       <Avatar className="h-7 w-7 shrink-0">
-        <AvatarFallback className="bg-primary/20">
+        <AvatarFallback className="bg-primary/10">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
         </AvatarFallback>
       </Avatar>
-      <div className="glass flex items-center gap-1 rounded-2xl px-4 py-2.5">
+      <div className="flex items-center gap-1 rounded-2xl border border-border bg-card px-4 py-2.5">
         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
@@ -457,34 +457,9 @@ function FeedRow({ message }: { message: Message }) {
   const isAdmin = message.sender_role === "admin";
   const isTranscript = message.turn_type === "call_transcript";
   return (
-    <div className={`flex items-end gap-2 ${isAdmin ? "justify-start" : "justify-end"}`}>
-      {isAdmin && (
-        <Avatar className="h-7 w-7 shrink-0">
-          <AvatarFallback className="bg-primary/20">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-          </AvatarFallback>
-        </Avatar>
-      )}
-      <div
-        className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-          isAdmin ? "glass text-foreground" : "bg-primary text-primary-foreground glow-primary"
-        }`}
-      >
-        {isTranscript && (
-          <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide opacity-60">
-            {message.sender_role} · spoken
-          </span>
-        )}
-        {message.text}
-      </div>
-      {!isAdmin && (
-        <Avatar className="h-7 w-7 shrink-0">
-          <AvatarFallback className="bg-secondary">
-            <User className="h-3.5 w-3.5 text-secondary-foreground" />
-          </AvatarFallback>
-        </Avatar>
-      )}
-    </div>
+    <ChatBubble self={!isAdmin} caption={isTranscript ? `${message.sender_role} · spoken` : undefined}>
+      {message.text}
+    </ChatBubble>
   );
 }
 

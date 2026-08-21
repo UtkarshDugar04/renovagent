@@ -46,7 +46,7 @@ export function HitlRequestCard({ projectId, request }: { projectId: string; req
 
   if (answered) {
     return (
-      <Card className="glass border-0">
+      <Card className="border-0">
         <CardContent className="py-4 text-sm text-muted-foreground">
           Decision submitted for &quot;{request.title}&quot;.
         </CardContent>
@@ -55,7 +55,7 @@ export function HitlRequestCard({ projectId, request }: { projectId: string; req
   }
 
   return (
-    <Card className="glass border-0 border-l-2 border-l-primary">
+    <Card className="border-0 border-l-2 border-l-primary">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
@@ -91,7 +91,6 @@ export function HitlRequestCard({ projectId, request }: { projectId: string; req
           <Button
             disabled={!overrideText.trim() || submitting !== null}
             onClick={() => submit({ overrideMessage: overrideText.trim() })}
-            className="glow-primary"
           >
             {submitting === "override" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send"}
           </Button>

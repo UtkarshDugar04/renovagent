@@ -101,7 +101,7 @@ export default async function UnderstandingPage() {
             ) : (
               <div className="space-y-1.5">
                 {grouped[domain].map((e) => (
-                  <Card key={e.id} className="glass border-0">
+                  <Card key={e.id}>
                     <CardContent className="flex items-center justify-between px-4 py-2.5">
                       <span className="text-sm">{e.statement}</span>
                       <Badge variant="secondary" className="ml-3 shrink-0 text-xs font-normal">

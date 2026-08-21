@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Sparkles, Building2, LogOut } from "lucide-react";
+import { Building2, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Logo } from "@/components/shared/Logo";
 import { logout } from "@/app/auth/login/actions";
 
 export function AgencyShell({
@@ -14,19 +15,14 @@ export function AgencyShell({
 }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-white/10">
+      <header className="border-b border-border">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link href="/projects" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg glass glow-primary">
-              <Sparkles className="h-4 w-4 text-primary" />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-semibold text-gradient">Renovagent</span>
-              <span className="flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
-                <Building2 className="h-2.5 w-2.5" />
-                Agency
-              </span>
-            </div>
+            <Logo size="sm" />
+            <span className="flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
+              <Building2 className="h-2.5 w-2.5" />
+              Agency
+            </span>
           </Link>
           <div className="flex items-center gap-3">
             <Avatar className="h-7 w-7">

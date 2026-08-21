@@ -2,6 +2,7 @@ import { ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { EscalationResolutionForm } from "@/components/decisions/EscalationResolutionForm";
 import { HitlRequestCard, type HitlOption } from "@/components/decisions/HitlRequestCard";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 export default async function EscalationsPage({
   params,
@@ -55,10 +56,7 @@ export default async function EscalationsPage({
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-foreground/90">Open ({open?.length ?? 0})</h2>
         {(open ?? []).length === 0 && (
-          <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-8 text-center">
-            <ShieldCheck className="h-5 w-5 text-accent" />
-            <p className="text-xs text-muted-foreground">Nothing open.</p>
-          </div>
+          <EmptyState icon={ShieldCheck} iconClassName="text-accent" description="Nothing open." />
         )}
         {(open ?? []).map((e) => (
           <EscalationResolutionForm key={e.id} escalation={e} projectId={projectId} />
@@ -71,7 +69,7 @@ export default async function EscalationsPage({
         </h2>
         <div className="space-y-1">
           {(resolved ?? []).map((e) => (
-            <div key={e.id} className="glass rounded-lg px-3 py-2 text-xs">
+            <div key={e.id} className="rounded-lg border border-border bg-card px-3 py-2 text-xs">
               <span className="text-muted-foreground">{e.question ?? e.trigger}</span>
               <span className="ml-2 text-accent">→ {e.resolution}</span>
             </div>

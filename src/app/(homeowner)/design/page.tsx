@@ -5,8 +5,10 @@ import { createClient } from "@/lib/supabase/server";
 import type { Domain } from "@/lib/types/domain";
 import { DesignOptionCard } from "@/components/design/DesignOptionCard";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { readinessTone } from "@/lib/status-styles";
 
 const DOMAIN_LABELS: Record<Domain, string> = {
   family: "understanding your household",
@@ -22,14 +24,6 @@ const STATE_COPY: Record<string, string> = {
   partially_understood: "partly there",
   sufficient_for_validation: "ready to check",
   validated: "ready",
-};
-
-const STATE_VARIANT: Record<string, string> = {
-  not_started: "bg-muted text-muted-foreground",
-  discovery_in_progress: "bg-muted text-muted-foreground",
-  partially_understood: "bg-accent/10 text-accent",
-  sufficient_for_validation: "bg-primary/10 text-primary",
-  validated: "bg-accent/10 text-accent",
 };
 
 export default async function DesignPage() {
@@ -93,13 +87,11 @@ export default async function DesignPage() {
     return (
       <div>
         <h1 className="mb-4 text-lg font-semibold tracking-tight">Design exploration</h1>
-        <div className="glass flex flex-col items-center gap-2 rounded-2xl px-6 py-10 text-center">
-          <LayoutGrid className="h-5 w-5 text-primary" />
-          <p className="text-sm text-muted-foreground">
-            Everything&apos;s in place — design options will appear here once Renovagent has
-            generated and checked them.
-          </p>
-        </div>
+        <EmptyState
+          icon={LayoutGrid}
+          iconClassName="text-primary"
+          description="Everything's in place — design options will appear here once Renovagent has generated and checked them."
+        />
       </div>
     );
   }
@@ -115,12 +107,12 @@ export default async function DesignPage() {
       </div>
       <div className="space-y-1.5">
         {(readiness ?? []).map((r) => (
-          <Card key={r.domain} className="glass border-0">
+          <Card key={r.domain}>
             <CardContent className="flex items-center justify-between px-4 py-2.5">
               <span className="text-sm">{DOMAIN_LABELS[r.domain as Domain]}</span>
-              <Badge className={`text-xs font-normal ${STATE_VARIANT[r.state]}`}>
+              <StatusBadge tone={readinessTone(r.state)}>
                 {STATE_COPY[r.state] ?? r.state}
-              </Badge>
+              </StatusBadge>
             </CardContent>
           </Card>
         ))}
