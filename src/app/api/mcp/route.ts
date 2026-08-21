@@ -67,6 +67,32 @@ function errorResult(message: string) {
   return { content: [{ type: "text" as const, text: message }], isError: true };
 }
 
+// Yoxa's model fills every optional schema field explicitly rather than
+// omitting absent ones — confirmed via a live MCP error (Zod rejecting
+// `null` on .optional() fields the model never intended to set). Schemas
+// below accept null via .nullish() so the call itself doesn't fail
+// validation; this strips those nulls back to undefined right at the
+// boundary so the rest of the app's types (which model "absent" as
+// undefined only) never see the difference.
+type StripNull<T> = T extends null
+  ? undefined
+  : T extends (infer U)[]
+    ? StripNull<U>[]
+    : T extends object
+      ? { [K in keyof T]: StripNull<T[K]> }
+      : T;
+
+function stripNulls<T>(value: T): StripNull<T> {
+  if (value === null) return undefined as unknown as StripNull<T>;
+  if (Array.isArray(value)) return value.map((v) => stripNulls(v)) as unknown as StripNull<T>;
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = stripNulls(v);
+    return out as StripNull<T>;
+  }
+  return value as StripNull<T>;
+}
+
 function buildServer() {
   const server = new McpServer({ name: "renovagent", version: "1.0.0" });
   const supabase = createServiceClient();
@@ -115,12 +141,12 @@ function buildServer() {
     domain: domainEnum,
     evidenceType: evidenceTypeEnum,
     statement: z.string(),
-    status: evidenceStatusEnum.optional(),
-    confidence: confidenceEnum.optional(),
-    authority: authorityEnum.optional(),
-    source: z.string().optional(),
-    contradictsEvidenceId: z.string().uuid().optional(),
-    supersededById: z.string().uuid().optional(),
+    status: evidenceStatusEnum.nullish(),
+    confidence: confidenceEnum.nullish(),
+    authority: authorityEnum.nullish(),
+    source: z.string().nullish(),
+    contradictsEvidenceId: z.string().uuid().nullish(),
+    supersededById: z.string().uuid().nullish(),
   });
 
   server.registerTool(
@@ -132,8 +158,9 @@ function buildServer() {
         evidence: z.array(evidenceItemSchema).min(1),
       },
     },
-    async ({ projectId, evidence }) => {
+    async (raw) => {
       try {
+        const { projectId, evidence } = stripNulls(raw);
         return textResult(await updateCanonicalRenovationDna(supabase, projectId, { evidence }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
@@ -150,8 +177,9 @@ function buildServer() {
         evidence: z.array(evidenceItemSchema).min(1),
       },
     },
-    async ({ projectId, evidence }) => {
+    async (raw) => {
       try {
+        const { projectId, evidence } = stripNulls(raw);
         return textResult(await updateCanonicalRenovationDna(supabase, projectId, { evidence }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
@@ -170,16 +198,17 @@ function buildServer() {
             z.object({
               domain: domainEnum,
               questionText: z.string(),
-              whyItMatters: z.string().optional(),
-              severity: severityEnum.optional(),
-              blocksReadiness: z.boolean().optional(),
+              whyItMatters: z.string().nullish(),
+              severity: severityEnum.nullish(),
+              blocksReadiness: z.boolean().nullish(),
             })
           )
           .min(1),
       },
     },
-    async ({ projectId, newQuestions }) => {
+    async (raw) => {
       try {
+        const { projectId, newQuestions } = stripNulls(raw);
         return textResult(await updateCanonicalRenovationDna(supabase, projectId, { newQuestions }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
@@ -199,14 +228,15 @@ function buildServer() {
               evidenceAId: z.string().uuid(),
               evidenceBId: z.string().uuid(),
               reason: z.string(),
-              affectedDomains: z.array(domainEnum).optional(),
+              affectedDomains: z.array(domainEnum).nullish(),
             })
           )
           .min(1),
       },
     },
-    async ({ projectId, conflicts }) => {
+    async (raw) => {
       try {
+        const { projectId, conflicts } = stripNulls(raw);
         return textResult(await updateCanonicalRenovationDna(supabase, projectId, { conflicts }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
@@ -224,16 +254,17 @@ function buildServer() {
           .array(
             z.object({
               name: z.string(),
-              roleInHousehold: z.string().optional(),
-              isPrimaryContact: z.boolean().optional(),
-              accessibilityNeeds: z.string().optional(),
+              roleInHousehold: z.string().nullish(),
+              isPrimaryContact: z.boolean().nullish(),
+              accessibilityNeeds: z.string().nullish(),
             })
           )
           .min(1),
       },
     },
-    async ({ projectId, householdMembers }) => {
+    async (raw) => {
       try {
+        const { projectId, householdMembers } = stripNulls(raw);
         return textResult(await updateCanonicalRenovationDna(supabase, projectId, { householdMembers }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
@@ -252,16 +283,17 @@ function buildServer() {
             z.object({
               category: z.string(),
               hardness: hardnessEnum,
-              status: constraintStatusEnum.optional(),
+              status: constraintStatusEnum.nullish(),
               description: z.string(),
-              evidenceIds: z.array(z.string().uuid()).optional(),
+              evidenceIds: z.array(z.string().uuid()).nullish(),
             })
           )
           .min(1),
       },
     },
-    async ({ projectId, constraints }) => {
+    async (raw) => {
       try {
+        const { projectId, constraints } = stripNulls(raw);
         return textResult(await updateCanonicalRenovationDna(supabase, projectId, { constraints }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
@@ -279,19 +311,20 @@ function buildServer() {
           .array(
             z.object({
               category: z.string(),
-              probableLow: z.number().optional(),
-              probableHigh: z.number().optional(),
-              estimated: z.number().optional(),
-              quoted: z.number().optional(),
-              confirmed: z.number().optional(),
-              priorityTier: z.string().optional(),
+              probableLow: z.number().nullish(),
+              probableHigh: z.number().nullish(),
+              estimated: z.number().nullish(),
+              quoted: z.number().nullish(),
+              confirmed: z.number().nullish(),
+              priorityTier: z.string().nullish(),
             })
           )
           .min(1),
       },
     },
-    async ({ projectId, budgetLines }) => {
+    async (raw) => {
       try {
+        const { projectId, budgetLines } = stripNulls(raw);
         return textResult(await updateCanonicalRenovationDna(supabase, projectId, { budgetLines }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
@@ -308,26 +341,27 @@ function buildServer() {
         spatialElements: z
           .array(
             z.object({
-              room: z.string().optional(),
+              room: z.string().nullish(),
               elementType: z.string(),
               attributes: z
                 .object({
-                  approxSqm: z.number().optional(),
-                  layout: z.string().optional(),
-                  adjacentRooms: z.array(z.string()).optional(),
-                  notes: z.string().optional(),
+                  approxSqm: z.number().nullish(),
+                  layout: z.string().nullish(),
+                  adjacentRooms: z.array(z.string()).nullish(),
+                  notes: z.string().nullish(),
                 })
-                .optional(),
+                .nullish(),
               certainty: confidenceEnum,
-              requiresVerification: z.boolean().optional(),
-              evidenceIds: z.array(z.string().uuid()).optional(),
+              requiresVerification: z.boolean().nullish(),
+              evidenceIds: z.array(z.string().uuid()).nullish(),
             })
           )
           .min(1),
       },
     },
-    async ({ projectId, spatialElements }) => {
+    async (raw) => {
       try {
+        const { projectId, spatialElements } = stripNulls(raw);
         return textResult(await updateCanonicalRenovationDna(supabase, projectId, { spatialElements }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
@@ -368,16 +402,17 @@ function buildServer() {
           .array(
             z.object({
               description: z.string(),
-              owner: z.string().optional().describe("Who owns this action, e.g. a household member or professional role."),
-              dueContext: z.string().optional().describe("Free-text timing context, not a hard deadline."),
+              owner: z.string().nullish().describe("Who owns this action, e.g. a household member or professional role."),
+              dueContext: z.string().nullish().describe("Free-text timing context, not a hard deadline."),
             })
           )
-          .optional(),
-        escalationLevel: severityEnum.optional(),
+          .nullish(),
+        escalationLevel: severityEnum.nullish(),
       },
     },
-    async ({ projectId, summary, pendingActions, escalationLevel }) => {
+    async (raw) => {
       try {
+        const { projectId, summary, pendingActions, escalationLevel } = stripNulls(raw);
         return textResult(
           await recordPendingOrchestrationState(supabase, projectId, {
             summary,
@@ -402,14 +437,15 @@ function buildServer() {
             z.object({
               domain: domainEnum,
               state: readinessStateEnum,
-              reason: z.string().optional().describe("Free-text explanation, blockers, and accepted uncertainty for this domain's gate decision."),
+              reason: z.string().nullish().describe("Free-text explanation, blockers, and accepted uncertainty for this domain's gate decision."),
             })
           )
           .min(1),
       },
     },
-    async ({ projectId, assessments }) => {
+    async (raw) => {
       try {
+        const { projectId, assessments } = stripNulls(raw);
         return textResult(await recordReadinessAssessment(supabase, projectId, { assessments }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
@@ -423,28 +459,28 @@ function buildServer() {
       description: "Register proposed (not approved) design options for a project — the Design Agent's option registry against a design round. Never marks anything approved or construction-ready.",
       inputSchema: {
         ...projectIdSchema,
-        roundNumber: z.number().int().optional().describe("Existing or new design round number. Omit to start a new round automatically."),
+        roundNumber: z.number().int().nullish().describe("Existing or new design round number. Omit to start a new round automatically."),
         options: z
           .array(
             z.object({
               label: z.string(),
               rationale: z.string(),
-              satisfiesEvidenceIds: z.array(z.string().uuid()).optional(),
-              tradeOffs: z.array(z.object({ gained: z.string(), sacrificed: z.string() })).optional(),
+              satisfiesEvidenceIds: z.array(z.string().uuid()).nullish(),
+              tradeOffs: z.array(z.object({ gained: z.string(), sacrificed: z.string() })).nullish(),
               costBand: z
                 .object({ low: z.number(), high: z.number(), confidence: confidenceEnum })
-                .nullable()
-                .optional(),
-              sourcingStatus: z.enum(["not_evaluated", "grounded", "indicative", "ungrounded"]).optional(),
-              whatItWouldFeelLike: z.string().optional(),
-              visibleToHomeowner: z.boolean().optional().describe("Defaults to false — hidden from the homeowner until the agency releases it."),
+                .nullish(),
+              sourcingStatus: z.enum(["not_evaluated", "grounded", "indicative", "ungrounded"]).nullish(),
+              whatItWouldFeelLike: z.string().nullish(),
+              visibleToHomeowner: z.boolean().nullish().describe("Defaults to false — hidden from the homeowner until the agency releases it."),
             })
           )
           .min(1),
       },
     },
-    async ({ projectId, roundNumber, options }) => {
+    async (raw) => {
       try {
+        const { projectId, roundNumber, options } = stripNulls(raw);
         return textResult(await recordProposedDesignPackage(supabase, projectId, { roundNumber, options }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
@@ -458,15 +494,16 @@ function buildServer() {
       description: "A pure, deterministic budget calculation over real budget_lines rows and the project's own ceiling — never an LLM guess at a price. Writes nothing; returns the calculation only.",
       inputSchema: {
         ...projectIdSchema,
-        contingencyPercent: z.number().optional().describe("Defaults to 10."),
+        contingencyPercent: z.number().nullish().describe("Defaults to 10."),
         categoryEstimates: z
           .array(z.object({ category: z.string(), estimated: z.number() }))
-          .optional()
+          .nullish()
           .describe("Hypothetical category estimates for this one calculation — not persisted."),
       },
     },
-    async ({ projectId, contingencyPercent, categoryEstimates }) => {
+    async (raw) => {
       try {
+        const { projectId, contingencyPercent, categoryEstimates } = stripNulls(raw);
         return textResult(
           await calculateBudgetScenarios(supabase, projectId, { contingencyPercent, categoryEstimates })
         );
@@ -482,37 +519,38 @@ function buildServer() {
       description: "Persist classified human feedback, rejection, and any resulting decision as new evidence — feedback must already be classified by the calling agent, not raw text.",
       inputSchema: {
         ...projectIdSchema,
-        designOptionId: z.string().uuid().optional().describe("Required together with sentiment if this feedback is about a specific design option."),
-        sentiment: sentimentEnum.optional(),
-        comment: z.string().optional(),
-        subElement: z.string().optional().describe("e.g. layout, materials, colour, storage, lighting, cost."),
+        designOptionId: z.string().uuid().nullish().describe("Required together with sentiment if this feedback is about a specific design option."),
+        sentiment: sentimentEnum.nullish(),
+        comment: z.string().nullish(),
+        subElement: z.string().nullish().describe("e.g. layout, materials, colour, storage, lighting, cost."),
         evidence: z
           .array(
             z.object({
               domain: domainEnum,
               evidenceType: evidenceTypeEnum,
               statement: z.string(),
-              status: evidenceStatusEnum.optional(),
-              confidence: confidenceEnum.optional(),
+              status: evidenceStatusEnum.nullish(),
+              confidence: confidenceEnum.nullish(),
             })
           )
-          .optional()
+          .nullish()
           .describe("Newly classified evidence this feedback produced — changed preferences, rejections, etc."),
         decision: z
           .object({
             decisionText: z.string(),
-            decisionMakerRole: decisionMakerRoleEnum.optional(),
-            alternativesConsidered: z.array(z.string()).optional(),
-            rationale: z.string().optional(),
-            affectedDomains: z.array(domainEnum).optional(),
-            reversibility: z.string().optional(),
+            decisionMakerRole: decisionMakerRoleEnum.nullish(),
+            alternativesConsidered: z.array(z.string()).nullish(),
+            rationale: z.string().nullish(),
+            affectedDomains: z.array(domainEnum).nullish(),
+            reversibility: z.string().nullish(),
           })
-          .optional()
+          .nullish()
           .describe("Present only if this feedback resulted in a recorded decision."),
       },
     },
-    async ({ projectId, ...input }) => {
+    async (raw) => {
       try {
+        const { projectId, ...input } = stripNulls(raw);
         return textResult(await recordExperienceFeedback(supabase, projectId, input));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
@@ -526,36 +564,37 @@ function buildServer() {
       description: "Propagate a change across dependent design options, decisions, readiness, and questions while preserving history — the Impact & Change Propagation Agent's one adapter for a ripple effect.",
       inputSchema: {
         ...projectIdSchema,
-        summary: z.string().optional().describe("Human-readable summary of what changed and why, logged as the project's activity entry."),
-        invalidatedDesignOptionIds: z.array(z.string().uuid()).optional().describe("design_options to mark rejected as a result of this change."),
+        summary: z.string().nullish().describe("Human-readable summary of what changed and why, logged as the project's activity entry."),
+        invalidatedDesignOptionIds: z.array(z.string().uuid()).nullish().describe("design_options to mark rejected as a result of this change."),
         supersededDecisions: z
           .array(
             z.object({
               oldDecisionId: z.string().uuid().describe("The decision being superseded — marked superseded, not deleted."),
               newDecisionText: z.string(),
-              decisionMakerRole: decisionMakerRoleEnum.optional(),
-              rationale: z.string().optional(),
-              affectedDomains: z.array(domainEnum).optional(),
+              decisionMakerRole: decisionMakerRoleEnum.nullish(),
+              rationale: z.string().nullish(),
+              affectedDomains: z.array(domainEnum).nullish(),
             })
           )
-          .optional(),
+          .nullish(),
         readinessUpdates: z
-          .array(z.object({ domain: domainEnum, state: readinessStateEnum, reason: z.string().optional() }))
-          .optional(),
+          .array(z.object({ domain: domainEnum, state: readinessStateEnum, reason: z.string().nullish() }))
+          .nullish(),
         newQuestions: z
           .array(
             z.object({
               domain: domainEnum,
               questionText: z.string(),
-              whyItMatters: z.string().optional(),
-              severity: severityEnum.optional(),
+              whyItMatters: z.string().nullish(),
+              severity: severityEnum.nullish(),
             })
           )
-          .optional(),
+          .nullish(),
       },
     },
-    async ({ projectId, ...input }) => {
+    async (raw) => {
       try {
+        const { projectId, ...input } = stripNulls(raw);
         return textResult(await applyDependencyImpactPatch(supabase, projectId, input));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
@@ -569,7 +608,7 @@ function buildServer() {
       description: "Store a role-appropriate handoff brief the agent has composed, for human review and approval before any delivery — never claim approval, verification, or legal permission on the project's behalf.",
       inputSchema: {
         ...projectIdSchema,
-        recipientRole: z.string().optional().describe('Who this brief is written for, e.g. professional, contractor, architect. Defaults to "professional".'),
+        recipientRole: z.string().nullish().describe('Who this brief is written for, e.g. professional, contractor, architect. Defaults to "professional".'),
         briefText: z
           .string()
           .describe(
@@ -577,8 +616,9 @@ function buildServer() {
           ),
       },
     },
-    async ({ projectId, recipientRole, briefText }) => {
+    async (raw) => {
       try {
+        const { projectId, recipientRole, briefText } = stripNulls(raw);
         return textResult(await generateRoleHandoffBrief(supabase, projectId, { recipientRole, briefText }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
