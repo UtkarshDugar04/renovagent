@@ -9,9 +9,14 @@
 // What gets extracted here is a best-effort, lightweight nicety so the UI
 // doesn't feel dead while the call is happening; it is never the source of
 // truth Design/Validation agents build on.
+//
+// Runs on Groq (text-only, no vision needed here) rather than Gemini —
+// Gemini's free tier caps at 20 requests/day per model, which live
+// conversation traffic blows through immediately; Groq's free tier has
+// much more headroom for exactly this kind of high-volume, latency-
+// sensitive text call.
 
-import { Type } from "@google/genai";
-import { createGeminiClient, generateWithRetry, CONVERSATION_MODEL } from "@/lib/gemini/client";
+import { createGroqClient, generateWithRetry, CONVERSATION_MODEL } from "@/lib/groq/client";
 import type { Domain, EvidenceType, Confidence, Severity } from "@/lib/types/domain";
 
 export type TurnType = "new_message" | "design_feedback" | "decision_resolution" | "call_transcript";
@@ -50,50 +55,51 @@ const EVIDENCE_TYPES: EvidenceType[] = [
 ];
 const CONFIDENCE_LEVELS: Confidence[] = ["unknown", "low", "medium", "high"];
 const SEVERITIES: Severity[] = ["e0", "e1", "e2", "e3", "e4", "e5"];
+const NEXT_ACTIONS = ["ask_conversation", "propose_design", "request_verification", "none"];
 
 const RESPONSE_SCHEMA = {
-  type: Type.OBJECT,
+  type: "object",
   properties: {
     conversationalReply: {
-      type: Type.STRING,
+      type: "string",
       description:
         "What to say back, in a warm, natural, conversational tone — never a form or a checklist. Empty string only if turnType is call_transcript and this fragment genuinely doesn't warrant interjecting (e.g. mid-thought, or nothing new).",
     },
     extractedEvidence: {
-      type: Type.ARRAY,
+      type: "array",
       items: {
-        type: Type.OBJECT,
+        type: "object",
         properties: {
-          domain: { type: Type.STRING, enum: DOMAINS },
-          evidenceType: { type: Type.STRING, enum: EVIDENCE_TYPES },
-          statement: { type: Type.STRING },
-          confidence: { type: Type.STRING, enum: CONFIDENCE_LEVELS },
+          domain: { type: "string", enum: DOMAINS },
+          evidenceType: { type: "string", enum: EVIDENCE_TYPES },
+          statement: { type: "string" },
+          confidence: { type: "string", enum: CONFIDENCE_LEVELS },
         },
         required: ["domain", "evidenceType", "statement", "confidence"],
+        additionalProperties: false,
       },
       description:
         "Only what THIS message explicitly states — never inferred beyond what was actually said, never duplicated from context already listed as an open question or prior evidence.",
     },
     gaps: {
-      type: Type.ARRAY,
+      type: "array",
       items: {
-        type: Type.OBJECT,
+        type: "object",
         properties: {
-          question: { type: Type.STRING },
-          domain: { type: Type.STRING, enum: DOMAINS },
-          severity: { type: Type.STRING, enum: SEVERITIES },
-          whyItMatters: { type: Type.STRING },
+          question: { type: "string" },
+          domain: { type: "string", enum: DOMAINS },
+          severity: { type: "string", enum: SEVERITIES },
+          whyItMatters: { type: "string" },
         },
         required: ["question", "domain", "severity", "whyItMatters"],
+        additionalProperties: false,
       },
       description: "New open questions this message surfaced — only genuinely new ones, not restating existing open questions.",
     },
-    nextBestAction: {
-      type: Type.STRING,
-      enum: ["ask_conversation", "propose_design", "request_verification", "none"],
-    },
+    nextBestAction: { type: "string", enum: NEXT_ACTIONS },
   },
   required: ["conversationalReply", "extractedEvidence", "gaps", "nextBestAction"],
+  additionalProperties: false,
 };
 
 const SYSTEM_INSTRUCTION = `You are Renovagent's live intake assistant, present during a real-time call between a homeowner and their renovation agency.
@@ -109,7 +115,9 @@ Turn types:
 - "call_transcript": one spoken fragment at a time from a live call. Interject only when it's genuinely warranted (something notable, a good follow-up moment, or nothing has been said yet) — most fragments should get an EMPTY conversationalReply, since a human listening in wouldn't speak after every sentence either.
 - "new_message" / "design_feedback" / "decision_resolution": a deliberate typed or submitted message — always warrants a real reply.
 
-Use the provided context (recent conversation, open questions already on file, domain readiness) so you don't repeat yourself or ask something already answered.`;
+Use the provided context (recent conversation, open questions already on file, domain readiness) so you don't repeat yourself or ask something already answered.
+
+Respond with a single JSON object matching the required schema exactly — no markdown, no commentary outside the JSON.`;
 
 function buildPrompt(request: TurnRequest): string {
   const lines: string[] = [];
@@ -156,20 +164,19 @@ const EMPTY_RESPONSE: TurnResponse = {
 
 export async function processTurn(request: TurnRequest): Promise<TurnResponse> {
   try {
-    const ai = createGeminiClient();
+    const groq = createGroqClient();
     const result = await generateWithRetry(() =>
-      ai.models.generateContent({
+      groq.chat.completions.create({
         model: CONVERSATION_MODEL,
-        contents: buildPrompt(request),
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
-        },
+        messages: [
+          { role: "system", content: SYSTEM_INSTRUCTION },
+          { role: "user", content: buildPrompt(request) },
+        ],
+        response_format: { type: "json_schema", json_schema: { name: "turn_response", schema: RESPONSE_SCHEMA, strict: true } },
       })
     );
 
-    const raw = result.text;
+    const raw = result.choices[0]?.message?.content;
     if (!raw) return EMPTY_RESPONSE;
 
     const parsed = JSON.parse(raw) as TurnResponse;
@@ -182,7 +189,7 @@ export async function processTurn(request: TurnRequest): Promise<TurnResponse> {
   } catch (err) {
     // A conversational-quality failure must never break the call or the
     // Knowledge Update Protocol route — degrade to silence, not an error.
-    console.error("processTurn: Gemini call failed", err);
+    console.error("processTurn: Groq call failed", err);
     return EMPTY_RESPONSE;
   }
 }

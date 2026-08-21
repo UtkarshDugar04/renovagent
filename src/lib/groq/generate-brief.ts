@@ -8,9 +8,12 @@
 // (verbal only — spatial evidence only ever comes from document upload
 // processing, never this brief), Conflicts/Disagreements, Open Questions,
 // Agent Notes.
+//
+// Runs on Groq (text-only summarization, no vision needed) rather than
+// Gemini — see process-turn.ts for why.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createGeminiClient, generateWithRetry, ANALYSIS_MODEL } from "@/lib/gemini/client";
+import { createGroqClient, generateWithRetry, ANALYSIS_MODEL } from "@/lib/groq/client";
 
 export interface GenerateBriefResult {
   markdown: string;
@@ -37,7 +40,8 @@ Rules:
 - "Open Questions" — things that came up but were never actually answered in this conversation.
 - "Agent Notes" — brief, useful context for the agents who read this next: tone of the conversation, anything ambiguous, anything that seemed rushed or uncertain.
 - Be concise and information-dense — this file has a hard 15-page limit. Do not pad with generic renovation advice or restate the same fact twice. If a section has nothing, write "None noted." rather than omitting the heading.
-- Never fabricate. If something wasn't said, it doesn't go in the brief.`;
+- Never fabricate. If something wasn't said, it doesn't go in the brief.
+- Respond with the markdown brief only — no commentary, no code fences, no preamble.`;
 
 export async function generateConversationBrief(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,20 +64,20 @@ export async function generateConversationBrief(
     .map((m) => `[${m.sender_role}]: ${m.text}`)
     .join("\n");
 
-  const ai = createGeminiClient();
+  const groq = createGroqClient();
   const result = await generateWithRetry(() =>
-    ai.models.generateContent({
+    groq.chat.completions.create({
       model: ANALYSIS_MODEL,
-      contents: `Full conversation transcript (chronological):\n\n${transcript}`,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        maxOutputTokens: 6000,
-      },
+      messages: [
+        { role: "system", content: SYSTEM_INSTRUCTION },
+        { role: "user", content: `Full conversation transcript (chronological):\n\n${transcript}` },
+      ],
+      max_tokens: 6000,
     })
   );
 
-  const markdown = result.text?.trim();
-  if (!markdown) throw new Error("Gemini returned an empty brief");
+  const markdown = result.choices[0]?.message?.content?.trim();
+  if (!markdown) throw new Error("Groq returned an empty brief");
 
   return { markdown, messageCount: messages.length };
 }

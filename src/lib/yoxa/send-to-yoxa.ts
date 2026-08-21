@@ -6,7 +6,7 @@
 // window.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { generateConversationBrief } from "@/lib/gemini/generate-brief";
+import { generateConversationBrief } from "@/lib/groq/generate-brief";
 import { markdownToPdf } from "@/lib/gemini/markdown-to-pdf";
 import { triggerYoxaWorkflow } from "@/lib/yoxa/trigger";
 
