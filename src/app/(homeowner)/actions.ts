@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 export async function createProject(formData: FormData) {
@@ -53,5 +54,15 @@ export async function createProject(formData: FormData) {
     .from("readiness")
     .insert(domains.map((domain) => ({ project_id: projectId, domain, state: "not_started" })));
 
+  // Without this, the redirect below can land on a client Router Cache
+  // entry for /conversation captured before this project existed — the
+  // homeowner layout's membership check ran when there was no membership
+  // yet, and that cached "show onboarding" render gets served again
+  // instead of a fresh one. Confirmed live: the project and membership
+  // rows were created correctly every time, but the UI kept re-showing an
+  // empty onboarding form regardless. Revalidating the whole tree (route
+  // groups have no URL segment of their own to target more narrowly) forces
+  // a fresh server render on this navigation.
+  revalidatePath("/", "layout");
   redirect("/conversation");
 }

@@ -6,8 +6,6 @@ import {
   PhoneOff,
   Mic,
   MicOff,
-  Video,
-  VideoOff,
   Sparkles,
   Radio,
   Send,
@@ -68,15 +66,40 @@ export function CallRoom({
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const feedBottomRef = useRef<HTMLDivElement>(null);
 
+  async function postSegment(text: string) {
+    // No optimistic local insert here: the realtime subscription below
+    // already adds this exact row once the server inserts it, deduped by
+    // its real id. An optimistic entry needs a synthetic id (the real one
+    // doesn't exist yet), which the realtime handler's id-based dedup can
+    // never match against the row that arrives moments later — the same
+    // segment ends up rendered twice. Realtime latency here is sub-second,
+    // so the round trip is not perceptible.
+    setPendingReplies((n) => n + 1);
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, turnType: "call_transcript", callSessionId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reply) {
+          setMessages((prev) => [...prev, data.reply]);
+        }
+      }
+    } finally {
+      setPendingReplies((n) => n - 1);
+    }
+  }
+
   const {
     connectionState,
     localStream,
     remoteStream,
     micEnabled,
-    cameraEnabled,
     mediaError,
     toggleMic,
-    toggleCamera,
     endCall,
   } = useCallSession(callSessionId, selfId);
 
@@ -146,34 +169,6 @@ export function CallRoom({
     };
   }, [projectId]);
 
-  async function postSegment(text: string) {
-    const optimistic: Message = {
-      id: `optimistic-${Date.now()}-${Math.random()}`,
-      sender_role: currentRole,
-      text,
-      turn_type: "call_transcript",
-      created_at: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, optimistic]);
-    setPendingReplies((n) => n + 1);
-
-    try {
-      const res = await fetch(`/api/projects/${projectId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, turnType: "call_transcript", callSessionId }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.reply) {
-          setMessages((prev) => [...prev, data.reply]);
-        }
-      }
-    } finally {
-      setPendingReplies((n) => n - 1);
-    }
-  }
-
   async function sendTyped() {
     const text = typedDraft.trim();
     if (!text) return;
@@ -237,7 +232,7 @@ export function CallRoom({
 
   return (
     <div className="space-y-4">
-      {(currentRole === "agency" || currentRole === "admin") && (
+      {currentRole === "agency" || currentRole === "admin" ? (
         <SendToYoxaPanel
           sentToYoxa={sentToYoxa}
           canSend={canSendToYoxa}
@@ -249,6 +244,21 @@ export function CallRoom({
           onCancelConfirm={() => setConfirmingSend(false)}
           onConfirm={handleSendToYoxa}
         />
+      ) : (
+        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          {sentToYoxa ? (
+            <>
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-accent" />
+              Sent to Yoxa — planning and design work has started.
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4 shrink-0" />
+              Your agency reviews this conversation and sends it on to planning when it&apos;s ready
+              — nothing for you to do here.
+            </>
+          )}
+        </div>
       )}
       <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
       <div className="space-y-3">
@@ -259,13 +269,13 @@ export function CallRoom({
               label="You"
               muted
               active={Boolean(localStream)}
-              cameraOff={!cameraEnabled}
+              cameraOff
             />
             <VideoTile
               ref={remoteVideoRef}
               label={currentRole === "homeowner" ? "Agency" : "Homeowner"}
               active={Boolean(remoteStream)}
-              cameraOff={false}
+              cameraOff
               waiting={inCall && !remoteStream}
             />
           </div>
@@ -285,9 +295,6 @@ export function CallRoom({
                 <>
                   <Button size="icon" variant="outline" onClick={toggleMic} title={micEnabled ? "Mute" : "Unmute"}>
                     {micEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4 text-destructive" />}
-                  </Button>
-                  <Button size="icon" variant="outline" onClick={toggleCamera} title={cameraEnabled ? "Turn camera off" : "Turn camera on"}>
-                    {cameraEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4 text-destructive" />}
                   </Button>
                   <Button size="icon" onClick={handleEnd} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" title="End call">
                     <PhoneOff className="h-4 w-4" />
@@ -425,7 +432,7 @@ function SendToYoxaPanel({
         {inCall
           ? "Send to Yoxa becomes available once the call has ended."
           : canSend
-            ? "Ready to send this conversation to Yoxa to start planning."
+            ? "Covered family, space, preferences, budget, and constraints? Send when ready — Yoxa reviews completeness itself and comes back with a confirmation step if anything needs more detail."
             : "Nothing to send yet — the conversation is empty."}
       </p>
       <Button size="sm" onClick={onStartConfirm} disabled={!canSend} variant="outline">

@@ -31,7 +31,6 @@ export function useCallSession(callSessionId: string | null, selfId: string) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [micEnabled, setMicEnabled] = useState(true);
-  const [cameraEnabled, setCameraEnabled] = useState(true);
   const [mediaError, setMediaError] = useState<string | null>(null);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -60,26 +59,21 @@ export function useCallSession(callSessionId: string | null, selfId: string) {
       setConnectionState("waiting");
       setMediaError(null);
 
+      // Audio-only by design — this call exists for the transcript, not a
+      // video feed, and never prompts for camera access.
       let stream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-      } catch {
-        try {
-          // Camera denied/unavailable — still join with audio only rather
-          // than failing the whole call.
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-          setMediaError("Camera unavailable — joined with audio only.");
-        } catch (audioErr) {
-          if (!cancelled) {
-            setConnectionState("failed");
-            setMediaError(
-              audioErr instanceof Error && audioErr.name === "NotAllowedError"
-                ? "Microphone and camera access was blocked — allow access in your browser and try again."
-                : "Couldn't access a microphone or camera on this device."
-            );
-          }
-          return;
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } catch (audioErr) {
+        if (!cancelled) {
+          setConnectionState("failed");
+          setMediaError(
+            audioErr instanceof Error && audioErr.name === "NotAllowedError"
+              ? "Microphone access was blocked — allow access in your browser and try again."
+              : "Couldn't access a microphone on this device."
+          );
         }
+        return;
       }
 
       if (cancelled) {
@@ -199,14 +193,6 @@ export function useCallSession(callSessionId: string | null, selfId: string) {
     });
   }, [localStream]);
 
-  const toggleCamera = useCallback(() => {
-    setCameraEnabled((prev) => {
-      const next = !prev;
-      localStream?.getVideoTracks().forEach((t) => (t.enabled = next));
-      return next;
-    });
-  }, [localStream]);
-
   const endCall = useCallback(() => {
     teardown();
     setConnectionState("ended");
@@ -214,5 +200,5 @@ export function useCallSession(callSessionId: string | null, selfId: string) {
     setRemoteStream(null);
   }, [teardown]);
 
-  return { connectionState, localStream, remoteStream, micEnabled, cameraEnabled, mediaError, toggleMic, toggleCamera, endCall };
+  return { connectionState, localStream, remoteStream, micEnabled, mediaError, toggleMic, endCall };
 }
