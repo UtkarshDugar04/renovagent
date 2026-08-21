@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getProjectRole } from "@/lib/auth/project-access";
 
 // POST /api/projects/:projectId/hitl/:hitlRequestId/respond
 // Called by our own authenticated UI once a human picks an option (or
@@ -18,13 +19,8 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { data: membership } = await supabase
-    .from("project_members")
-    .select("role")
-    .eq("project_id", projectId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!membership) return NextResponse.json({ error: "Not a member of this project" }, { status: 403 });
+  const role = await getProjectRole(supabase, projectId, user.id);
+  if (!role) return NextResponse.json({ error: "Not a member of this project" }, { status: 403 });
 
   const body = await request.json().catch(() => ({}));
   const selectedOptionId: string | undefined = body?.selectedOptionId;
