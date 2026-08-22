@@ -380,7 +380,7 @@ function buildServer() {
         engine: domainEnum,
         artifactType: z.string().describe("e.g. persona, floor_plan, budget_breakdown, summary."),
         content: z.string().nullish().describe("Static HTML content. Required unless imageUrl is given."),
-        imageUrl: z.string().url().nullish().describe("Result of an Output Tool: Image call. Required unless content is given."),
+        imageUrl: z.string().nullish().describe("Result of an Output Tool: Image call. Required unless content is given."),
       },
     },
     async (raw) => {
@@ -404,7 +404,7 @@ function buildServer() {
         images: z
           .array(
             z.object({
-              imageUrl: z.string().url().describe("Result of an Output Tool: Image call."),
+              imageUrl: z.string().describe("Result of an Output Tool: Image call."),
               caption: z.string().nullish().describe("Short caption describing what this image shows."),
               roomOrTheme: z.string().nullish().describe("e.g. kitchen, living room, colour palette."),
             })
@@ -529,7 +529,7 @@ function buildServer() {
         images: z
           .array(
             z.object({
-              imageUrl: z.string().url().describe("Result of an Output Tool: Image call."),
+              imageUrl: z.string().describe("Result of an Output Tool: Image call."),
               angle: z.string().nullish().describe("e.g. 'entrance view', 'cabinetry detail'."),
               materialsShown: z.array(z.string()).nullish().describe("Materials visible in this specific image, e.g. ['marble countertop', 'terracotta backsplash']."),
             })
