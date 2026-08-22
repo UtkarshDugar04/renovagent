@@ -57,6 +57,7 @@ export async function submitDesignFeedback(
     projectId,
     turnType: "design_feedback",
     message: feedbackMessage,
+    senderRole: "homeowner",
     attachments: [],
     context: { recentConversation: [], openQuestions: [], domainReadiness: {} },
   });

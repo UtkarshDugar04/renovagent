@@ -521,10 +521,15 @@ const VideoTile = ({
   waiting?: boolean;
 }) => (
   <div className="relative flex aspect-video items-center justify-center bg-black/40">
-    {active && !cameraOff ? (
-      <video ref={ref} autoPlay playsInline muted={muted} className="h-full w-full object-cover" />
-    ) : (
-      <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
+    {/* Always mounted, even when showing the avatar overlay below — this
+       is an audio-only call, so there's never a video track to see, but
+       the element still has to exist and receive srcObject for its
+       associated audio track to actually play. Gating this element's
+       existence on `!cameraOff` (cameraOff is always true here) used to
+       mean it never mounted at all, so nothing was ever audible. */}
+    <video ref={ref} autoPlay playsInline muted={muted} className="h-full w-full object-cover" />
+    {(!active || cameraOff) && (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/40 text-muted-foreground">
         <Avatar className="h-10 w-10">
           <AvatarFallback className="bg-secondary text-sm">{label.slice(0, 2).toUpperCase()}</AvatarFallback>
         </Avatar>

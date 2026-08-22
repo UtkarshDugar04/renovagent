@@ -88,6 +88,7 @@ export async function POST(
     projectId,
     turnType: turnType as "new_message" | "design_feedback" | "decision_resolution" | "call_transcript",
     message: text,
+    senderRole: role,
     attachments: (attachmentRows ?? []).map((a) => ({
       id: a.id,
       label: a.label ?? "attachment",

@@ -43,6 +43,34 @@ Rules:
 - Never fabricate. If something wasn't said, it doesn't go in the brief.
 - Respond with the markdown brief only — no commentary, no code fences, no preamble.`;
 
+const CHUNK_SUMMARY_SYSTEM = `You are compressing one segment of a longer home renovation intake conversation transcript into dense factual notes, to be combined with notes from other segments later into a final structured brief. Extract every concrete fact stated by the homeowner or agency — household composition, routines, preferences, budget figures, constraints, disagreements — as short factual bullet points, one per fact. Do not write vague summary prose and do not drop specifics. Ignore lines from sender "admin" except as context for what question was being answered. Output only the bullet points, nothing else.`;
+
+// Groq's org-wide rate limit for ANALYSIS_MODEL is small enough (confirmed
+// live: 8000 TPM, shared across the whole org) that a single long,
+// substantive conversation — exactly what a real intake call should be —
+// can blow past it in one request. Rather than cap conversation length,
+// chunk the transcript and compress each piece into dense factual notes
+// first, then synthesize the final brief from the combined notes instead
+// of the raw transcript. Scales to arbitrarily long conversations.
+const MAX_TRANSCRIPT_CHARS_PER_CALL = 12000; // ~3000 tokens by the ~4-chars-per-token rule of thumb, leaving real headroom under the 8000 TPM cap alongside the system instruction and the completion's own token reservation
+
+function chunkTranscriptLines(lines: string[], maxChars: number): string[] {
+  const chunks: string[] = [];
+  let current: string[] = [];
+  let currentLen = 0;
+  for (const line of lines) {
+    if (currentLen + line.length > maxChars && current.length > 0) {
+      chunks.push(current.join("\n"));
+      current = [];
+      currentLen = 0;
+    }
+    current.push(line);
+    currentLen += line.length + 1;
+  }
+  if (current.length > 0) chunks.push(current.join("\n"));
+  return chunks;
+}
+
 export async function generateConversationBrief(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
@@ -59,20 +87,50 @@ export async function generateConversationBrief(
     throw new Error("No conversation to summarize — nothing has been said in this project yet");
   }
 
-  const transcript = messages
+  const lines = messages
     .filter((m) => m.text && m.text.trim().length > 0)
-    .map((m) => `[${m.sender_role}]: ${m.text}`)
-    .join("\n");
+    .map((m) => `[${m.sender_role}]: ${m.text}`);
+  const fullTranscript = lines.join("\n");
 
   const groq = createGroqClient();
+  let sourceText = fullTranscript;
+
+  if (fullTranscript.length > MAX_TRANSCRIPT_CHARS_PER_CALL) {
+    const chunks = chunkTranscriptLines(lines, MAX_TRANSCRIPT_CHARS_PER_CALL);
+    const digests: string[] = [];
+    // Sequential, not parallel — the rate limit is shared per-minute
+    // across the whole org, so firing these concurrently risks the exact
+    // 413 this chunking exists to avoid.
+    for (const chunk of chunks) {
+      const chunkResult = await generateWithRetry(() =>
+        groq.chat.completions.create({
+          model: ANALYSIS_MODEL,
+          messages: [
+            { role: "system", content: CHUNK_SUMMARY_SYSTEM },
+            { role: "user", content: chunk },
+          ],
+          max_tokens: 1200,
+        })
+      );
+      const digest = chunkResult.choices[0]?.message?.content?.trim();
+      if (digest) digests.push(digest);
+    }
+    sourceText = digests.join("\n\n");
+  }
+
+  const promptLabel =
+    sourceText === fullTranscript
+      ? "Full conversation transcript (chronological)"
+      : "Chronological factual notes extracted from the full transcript, segment by segment";
+
   const result = await generateWithRetry(() =>
     groq.chat.completions.create({
       model: ANALYSIS_MODEL,
       messages: [
         { role: "system", content: SYSTEM_INSTRUCTION },
-        { role: "user", content: `Full conversation transcript (chronological):\n\n${transcript}` },
+        { role: "user", content: `${promptLabel}:\n\n${sourceText}` },
       ],
-      max_tokens: 6000,
+      max_tokens: 3000,
     })
   );
 
