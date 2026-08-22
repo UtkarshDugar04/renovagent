@@ -61,6 +61,7 @@ export function CallRoom({
   const [sending, setSending] = useState(false);
   const [confirmingSend, setConfirmingSend] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -201,10 +202,13 @@ export function CallRoom({
 
   async function handleJoin() {
     setJoining(true);
+    setJoinError(null);
     const result = await joinOrStartCallSession(projectId);
     setJoining(false);
     if ("callSessionId" in result && result.callSessionId) {
       setCallSessionId(result.callSessionId);
+    } else {
+      setJoinError(result.error ?? "Couldn't start or join the call — try again.");
     }
   }
 
@@ -283,7 +287,7 @@ export function CallRoom({
           <div className="flex items-center justify-between gap-2 border-t border-border p-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <StatusDot state={connectionState} />
-              {mediaError ?? statusLabel(connectionState)}
+              {joinError ?? mediaError ?? statusLabel(connectionState, Boolean(localStream))}
             </div>
             <div className="flex items-center gap-2">
               {!inCall ? (
@@ -482,12 +486,12 @@ function StatusDot({ state }: { state: string }) {
   return <span className={`h-1.5 w-1.5 rounded-full ${color}`} />;
 }
 
-function statusLabel(state: string) {
+function statusLabel(state: string, hasLocalStream: boolean) {
   switch (state) {
     case "idle":
       return "Not connected";
     case "waiting":
-      return "Setting up your camera & mic…";
+      return hasLocalStream ? "Waiting for the other side to join…" : "Setting up your camera & mic…";
     case "connecting":
       return "Connecting to the other side…";
     case "connected":
