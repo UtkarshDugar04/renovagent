@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AttachmentList } from "@/components/understanding/AttachmentList";
+import { PreferenceImageBoard } from "@/components/decisions/PreferenceImageBoard";
 import { EmptyState } from "@/components/shared/EmptyState";
 
 const DOMAIN_META: Record<Domain, { label: string; icon: React.ElementType }> = {
@@ -40,7 +41,7 @@ export default async function UnderstandingPage() {
     .maybeSingle();
   if (!membership) redirect("/");
 
-  const [{ data: evidence }, { data: attachments }, { data: events }] = await Promise.all([
+  const [{ data: evidence }, { data: attachments }, { data: events }, { data: artifacts }, { data: preferenceImages }] = await Promise.all([
     supabase
       .from("evidence")
       .select("id, domain, statement, status, confidence")
@@ -58,6 +59,16 @@ export default async function UnderstandingPage() {
       .not("activity_summary", "is", null)
       .order("created_at", { ascending: false })
       .limit(50),
+    supabase
+      .from("project_artifacts")
+      .select("id, engine, artifact_type, content, image_storage_path, created_at")
+      .eq("project_id", membership.project_id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("preference_images")
+      .select("id, storage_path, caption, room_or_theme, created_at")
+      .eq("project_id", membership.project_id)
+      .order("created_at", { ascending: false }),
   ]);
 
   const attachmentLinks = await Promise.all(
@@ -72,6 +83,40 @@ export default async function UnderstandingPage() {
   const domains: Domain[] = ["family", "spatial", "preference", "budget", "constraint"];
   const grouped = Object.fromEntries(
     domains.map((d) => [d, (evidence ?? []).filter((e) => e.domain === d)])
+  );
+
+  // Latest artifact per (engine, artifact_type) — same append-only,
+  // latest-wins convention as the agency's dna/page.tsx.
+  const latestArtifacts = new Map<string, (typeof artifacts extends (infer T)[] | null ? T : never)>();
+  for (const artifact of artifacts ?? []) {
+    const key = `${artifact.engine}:${artifact.artifact_type}`;
+    if (!latestArtifacts.has(key)) latestArtifacts.set(key, artifact);
+  }
+  const artifactsByDomain = Object.fromEntries(
+    domains.map((d) => [d, [...latestArtifacts.values()].filter((a) => a.engine === d)])
+  );
+
+  const artifactImageUrls = new Map<string, string>();
+  for (const artifact of latestArtifacts.values()) {
+    if (!artifact.image_storage_path) continue;
+    const { data } = await supabase.storage
+      .from("project-attachments")
+      .createSignedUrl(artifact.image_storage_path, 3600);
+    if (data?.signedUrl) artifactImageUrls.set(artifact.id, data.signedUrl);
+  }
+
+  const moodboardImages = await Promise.all(
+    (preferenceImages ?? []).map(async (img) => {
+      const { data } = await supabase.storage
+        .from("project-attachments")
+        .createSignedUrl(img.storage_path, 3600);
+      return {
+        id: img.id,
+        url: data?.signedUrl ?? "",
+        caption: img.caption,
+        roomOrTheme: img.room_or_theme,
+      };
+    })
   );
 
   return (
@@ -111,12 +156,40 @@ export default async function UnderstandingPage() {
 
           {domains.map((domain) => {
             const Icon = DOMAIN_META[domain].icon;
+            const domainArtifacts = artifactsByDomain[domain];
             return (
               <section key={domain}>
                 <h2 className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground/90">
                   <Icon className="h-3.5 w-3.5 text-primary" />
                   {DOMAIN_META[domain].label}
                 </h2>
+
+                {domainArtifacts.map((artifact) => (
+                  <div key={artifact.id} className="mb-3 overflow-hidden rounded-lg border border-border">
+                    {artifact.image_storage_path ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- signed Supabase Storage URL
+                      <img
+                        src={artifactImageUrls.get(artifact.id) ?? ""}
+                        alt={`${DOMAIN_META[domain].label} — ${artifact.artifact_type}`}
+                        className="w-full bg-white object-contain"
+                      />
+                    ) : (
+                      <iframe
+                        srcDoc={artifact.content ?? ""}
+                        sandbox=""
+                        className="h-[380px] w-full border-0 bg-white"
+                        title={`${DOMAIN_META[domain].label} — ${artifact.artifact_type}`}
+                      />
+                    )}
+                  </div>
+                ))}
+
+                {domain === "preference" && (
+                  <div className="mb-3">
+                    <PreferenceImageBoard projectId={membership.project_id} images={moodboardImages} />
+                  </div>
+                )}
+
                 {grouped[domain].length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Nothing yet — this will fill in as we talk.

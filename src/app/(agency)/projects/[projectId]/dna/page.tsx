@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PreferenceImageBoard } from "@/components/decisions/PreferenceImageBoard";
 
 const DOMAIN_META: Record<Domain, { label: string; icon: React.ElementType }> = {
   family: { label: "Family", icon: Users },
@@ -92,7 +93,7 @@ export default async function ProjectDnaPage({
   const { projectId } = await params;
   const supabase = await createClient();
 
-  const [{ data: evidence }, { data: constraints }, { data: budgetLines }, { data: conflicts }, { data: assumptions }, { data: artifacts }] =
+  const [{ data: evidence }, { data: constraints }, { data: budgetLines }, { data: conflicts }, { data: assumptions }, { data: artifacts }, { data: preferenceImages }] =
     await Promise.all([
       supabase
         .from("evidence")
@@ -117,7 +118,12 @@ export default async function ProjectDnaPage({
         .eq("project_id", projectId),
       supabase
         .from("project_artifacts")
-        .select("id, engine, artifact_type, content, created_at")
+        .select("id, engine, artifact_type, content, image_storage_path, created_at")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("preference_images")
+        .select("id, storage_path, caption, room_or_theme, created_at")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false }),
     ]);
@@ -131,6 +137,29 @@ export default async function ProjectDnaPage({
     const key = `${artifact.engine}:${artifact.artifact_type}`;
     if (!latestArtifacts.has(key)) latestArtifacts.set(key, artifact);
   }
+
+  const artifactImageUrls = new Map<string, string>();
+  for (const artifact of latestArtifacts.values()) {
+    if (!artifact.image_storage_path) continue;
+    const { data } = await supabase.storage
+      .from("project-attachments")
+      .createSignedUrl(artifact.image_storage_path, 3600);
+    if (data?.signedUrl) artifactImageUrls.set(artifact.id, data.signedUrl);
+  }
+
+  const moodboardImages = await Promise.all(
+    (preferenceImages ?? []).map(async (img) => {
+      const { data } = await supabase.storage
+        .from("project-attachments")
+        .createSignedUrl(img.storage_path, 3600);
+      return {
+        id: img.id,
+        url: data?.signedUrl ?? "",
+        caption: img.caption,
+        roomOrTheme: img.room_or_theme,
+      };
+    })
+  );
 
   return (
     <Tabs defaultValue="family" className="gap-4">
@@ -162,19 +191,35 @@ export default async function ProjectDnaPage({
                   <span>{artifact.artifact_type}</span>
                   <span>{new Date(artifact.created_at).toLocaleString()}</span>
                 </div>
-                {/* Agent-generated HTML — never trusted with script execution.
-                    Empty sandbox = every iframe privilege denied: no scripts,
-                    no forms, no same-origin access, nothing. Fixed height
-                    since a locked-down iframe can't safely postMessage its
-                    content size back to the parent for auto-resize. */}
-                <iframe
-                  srcDoc={artifact.content}
-                  sandbox=""
-                  className="h-[420px] w-full border-0 bg-white"
-                  title={`${DOMAIN_META[domain].label} — ${artifact.artifact_type}`}
-                />
+                {artifact.image_storage_path ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- signed Supabase Storage URL, not a fixed remote domain
+                  <img
+                    src={artifactImageUrls.get(artifact.id) ?? ""}
+                    alt={`${DOMAIN_META[domain].label} — ${artifact.artifact_type}`}
+                    className="w-full bg-white object-contain"
+                  />
+                ) : (
+                  // Agent-generated HTML — never trusted with script execution.
+                  // Empty sandbox = every iframe privilege denied: no scripts,
+                  // no forms, no same-origin access, nothing. Fixed height
+                  // since a locked-down iframe can't safely postMessage its
+                  // content size back to the parent for auto-resize.
+                  <iframe
+                    srcDoc={artifact.content ?? ""}
+                    sandbox=""
+                    className="h-[420px] w-full border-0 bg-white"
+                    title={`${DOMAIN_META[domain].label} — ${artifact.artifact_type}`}
+                  />
+                )}
               </div>
             ))}
+
+            {domain === "preference" && (
+              <div>
+                <h3 className="mb-2 text-xs font-medium text-muted-foreground">Moodboard</h3>
+                <PreferenceImageBoard projectId={projectId} images={moodboardImages} />
+              </div>
+            )}
 
             <EvidenceTable items={items} />
 

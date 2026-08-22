@@ -516,6 +516,41 @@ export type Database = {
           },
         ]
       }
+      design_option_images: {
+        Row: {
+          angle: string | null
+          created_at: string
+          design_option_id: string
+          id: string
+          materials_shown: string[]
+          storage_path: string
+        }
+        Insert: {
+          angle?: string | null
+          created_at?: string
+          design_option_id: string
+          id?: string
+          materials_shown?: string[]
+          storage_path: string
+        }
+        Update: {
+          angle?: string | null
+          created_at?: string
+          design_option_id?: string
+          id?: string
+          materials_shown?: string[]
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_option_images_design_option_id_fkey"
+            columns: ["design_option_id"]
+            isOneToOne: false
+            referencedRelation: "design_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       design_options: {
         Row: {
           cost_band: Json | null
@@ -865,6 +900,80 @@ export type Database = {
           },
         ]
       }
+      preference_image_reactions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          preference_image_id: string
+          reaction: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          preference_image_id: string
+          reaction: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          preference_image_id?: string
+          reaction?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preference_image_reactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preference_image_reactions_preference_image_id_fkey"
+            columns: ["preference_image_id"]
+            isOneToOne: false
+            referencedRelation: "preference_images"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preference_images: {
+        Row: {
+          caption: string | null
+          created_at: string
+          id: string
+          project_id: string
+          room_or_theme: string | null
+          storage_path: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          project_id: string
+          room_or_theme?: string | null
+          storage_path: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          project_id?: string
+          room_or_theme?: string | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preference_images_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -889,26 +998,29 @@ export type Database = {
       project_artifacts: {
         Row: {
           artifact_type: string
-          content: string
+          content: string | null
           created_at: string
           engine: Database["public"]["Enums"]["domain_type"]
           id: string
+          image_storage_path: string | null
           project_id: string
         }
         Insert: {
           artifact_type: string
-          content: string
+          content?: string | null
           created_at?: string
           engine: Database["public"]["Enums"]["domain_type"]
           id?: string
+          image_storage_path?: string | null
           project_id: string
         }
         Update: {
           artifact_type?: string
-          content?: string
+          content?: string | null
           created_at?: string
           engine?: Database["public"]["Enums"]["domain_type"]
           id?: string
+          image_storage_path?: string | null
           project_id?: string
         }
         Relationships: [

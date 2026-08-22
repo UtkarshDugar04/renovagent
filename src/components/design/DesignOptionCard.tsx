@@ -13,6 +13,12 @@ interface TradeOff {
   sacrificed: string;
 }
 
+interface DesignOptionImage {
+  id: string;
+  url: string;
+  angle: string | null;
+}
+
 interface DesignOption {
   id: string;
   label: string;
@@ -22,6 +28,7 @@ interface DesignOption {
   sourcing_status: string;
   what_it_would_feel_like: string | null;
   status: string;
+  images?: DesignOptionImage[];
 }
 
 const SUB_ELEMENTS = ["layout", "materials", "colour", "storage", "lighting", "cost"] as const;
@@ -62,6 +69,24 @@ export function DesignOptionCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {option.images && option.images.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto">
+            {option.images.map((img) => (
+              <figure key={img.id} className="shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element -- signed Supabase Storage URL */}
+                <img
+                  src={img.url}
+                  alt={img.angle ?? option.label}
+                  className="h-32 w-44 rounded-lg border border-border object-cover"
+                />
+                {img.angle && (
+                  <figcaption className="mt-1 text-[10px] text-muted-foreground">{img.angle}</figcaption>
+                )}
+              </figure>
+            ))}
+          </div>
+        )}
+
         <p className="text-sm text-muted-foreground">{option.rationale}</p>
 
         {option.what_it_would_feel_like && (

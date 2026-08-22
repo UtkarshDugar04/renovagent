@@ -8,6 +8,8 @@ import { getCanonicalRenovationDna } from "@/lib/yoxa/tools/get-canonical-renova
 import { reviewSpatialEvidence } from "@/lib/yoxa/tools/review-spatial-evidence";
 import { updateCanonicalRenovationDna } from "@/lib/yoxa/tools/update-canonical-renovation-dna";
 import { recordEngineArtifact } from "@/lib/yoxa/tools/record-engine-artifact";
+import { recordPreferenceMoodboardImages } from "@/lib/yoxa/tools/record-preference-moodboard-images";
+import { recordDesignOptionImages } from "@/lib/yoxa/tools/record-design-option-images";
 import { recordPendingOrchestrationState } from "@/lib/yoxa/tools/record-pending-orchestration-state";
 import { recordReadinessAssessment } from "@/lib/yoxa/tools/record-readiness-assessment";
 import { recordProposedDesignPackage } from "@/lib/yoxa/tools/record-proposed-design-package";
@@ -372,19 +374,48 @@ function buildServer() {
   server.registerTool(
     "recordEngineArtifact",
     {
-      description: "Store a domain intelligence engine's composed output — a moodboard, a persona document, a rough schematic, a constraint summary — rendered on Renovagent's own dashboard, not Yoxa's interface. Rendered inside a fully sandboxed iframe, so scripts never execute regardless of content.",
+      description: "Store a domain intelligence engine's single composed visual — a persona document, a floor-plan image, a P&L-styled budget breakdown, a constraint summary — rendered on Renovagent's own dashboard, not Yoxa's interface. Provide exactly one of content or imageUrl. content is static HTML rendered inside a fully sandboxed iframe (scripts never execute regardless of content) — use for Family's persona, Budget's breakdown, Constraint's summary. imageUrl is the result of an Output Tool: Image call on this agent — use for Spatial's floor plan. For Preference's moodboard (many independently-reactable images, not one document), call recordPreferenceMoodboardImages instead.",
       inputSchema: {
         ...projectIdSchema,
         engine: domainEnum,
-        artifactType: z.string().describe("e.g. persona, moodboard, schematic, summary."),
-        content: z.string().describe("The composed HTML content itself."),
+        artifactType: z.string().describe("e.g. persona, floor_plan, budget_breakdown, summary."),
+        content: z.string().nullish().describe("Static HTML content. Required unless imageUrl is given."),
+        imageUrl: z.string().url().nullish().describe("Result of an Output Tool: Image call. Required unless content is given."),
       },
     },
-    async ({ projectId, engine, artifactType, content }) => {
+    async (raw) => {
       try {
+        const { projectId, engine, artifactType, content, imageUrl } = stripNulls(raw);
         return textResult(
-          await recordEngineArtifact(supabase, projectId, { engine, artifactType, content })
+          await recordEngineArtifact(supabase, projectId, { engine, artifactType, content, imageUrl })
         );
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordPreferenceMoodboardImages",
+    {
+      description: "Add one or more real generated images to the Preference engine's moodboard, each independently visible and reactable (thumbs up/down/save) by the homeowner and agency. Each imageUrl is the result of an Output Tool: Image call on this agent — generate a few style/material reference images per what preference evidence supports, then call this once with all of them.",
+      inputSchema: {
+        ...projectIdSchema,
+        images: z
+          .array(
+            z.object({
+              imageUrl: z.string().url().describe("Result of an Output Tool: Image call."),
+              caption: z.string().nullish().describe("Short caption describing what this image shows."),
+              roomOrTheme: z.string().nullish().describe("e.g. kitchen, living room, colour palette."),
+            })
+          )
+          .min(1),
+      },
+    },
+    async (raw) => {
+      try {
+        const { projectId, images } = stripNulls(raw);
+        return textResult(await recordPreferenceMoodboardImages(supabase, projectId, { images }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
       }
@@ -482,6 +513,34 @@ function buildServer() {
       try {
         const { projectId, roundNumber, options } = stripNulls(raw);
         return textResult(await recordProposedDesignPackage(supabase, projectId, { roundNumber, options }));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordDesignOptionImages",
+    {
+      description: "Attach real generated visuals to an already-registered design option (call recordProposedDesignPackage first and use the returned option id). Each imageUrl is the result of an Output Tool: Image call on this agent — describe that specific option's actual chosen materials and style in the image prompt (e.g. if the option specifies marble, the image prompt must describe marble) so the visual genuinely reflects the option, not a generic room. Call once per option with one or more angles.",
+      inputSchema: {
+        ...projectIdSchema,
+        designOptionId: z.string().uuid(),
+        images: z
+          .array(
+            z.object({
+              imageUrl: z.string().url().describe("Result of an Output Tool: Image call."),
+              angle: z.string().nullish().describe("e.g. 'entrance view', 'cabinetry detail'."),
+              materialsShown: z.array(z.string()).nullish().describe("Materials visible in this specific image, e.g. ['marble countertop', 'terracotta backsplash']."),
+            })
+          )
+          .min(1),
+      },
+    },
+    async (raw) => {
+      try {
+        const { projectId, designOptionId, images } = stripNulls(raw);
+        return textResult(await recordDesignOptionImages(supabase, projectId, { designOptionId, images }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
       }

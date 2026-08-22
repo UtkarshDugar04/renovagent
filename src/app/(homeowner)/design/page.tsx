@@ -64,6 +64,20 @@ export default async function DesignPage() {
     .order("created_at", { ascending: false });
 
   if (options && options.length > 0) {
+    const { data: optionImages } = await supabase
+      .from("design_option_images")
+      .select("id, design_option_id, storage_path, angle")
+      .in("design_option_id", options.map((o) => o.id));
+
+    const imagesByOption = new Map<string, { id: string; url: string; angle: string | null }[]>();
+    for (const img of optionImages ?? []) {
+      const { data } = await supabase.storage.from("project-attachments").createSignedUrl(img.storage_path, 3600);
+      const entry = { id: img.id, url: data?.signedUrl ?? "", angle: img.angle };
+      const existing = imagesByOption.get(img.design_option_id) ?? [];
+      existing.push(entry);
+      imagesByOption.set(img.design_option_id, existing);
+    }
+
     return (
       <div className="space-y-4">
         <h1 className="text-lg font-semibold tracking-tight">Design exploration</h1>
@@ -75,6 +89,7 @@ export default async function DesignPage() {
               option={{
                 ...o,
                 cost_band: o.cost_band as { low: number; high: number; confidence: string } | null,
+                images: imagesByOption.get(o.id) ?? [],
               }}
             />
           ))}

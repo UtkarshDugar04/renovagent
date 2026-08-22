@@ -38,6 +38,20 @@ export default async function DesignReviewPage({
     return <EmptyState icon={LayoutGrid} description="No design options generated yet." />;
   }
 
+  const { data: optionImages } = await supabase
+    .from("design_option_images")
+    .select("id, design_option_id, storage_path, angle")
+    .in("design_option_id", options.map((o) => o.id));
+
+  const imagesByOption = new Map<string, { id: string; url: string; angle: string | null }[]>();
+  for (const img of optionImages ?? []) {
+    const { data } = await supabase.storage.from("project-attachments").createSignedUrl(img.storage_path, 3600);
+    const entry = { id: img.id, url: data?.signedUrl ?? "", angle: img.angle };
+    const existing = imagesByOption.get(img.design_option_id) ?? [];
+    existing.push(entry);
+    imagesByOption.set(img.design_option_id, existing);
+  }
+
   return (
     <div className="space-y-4">
       {options.map((o) => {
@@ -61,6 +75,23 @@ export default async function DesignReviewPage({
               </div>
             </CardHeader>
             <CardContent className="space-y-2">
+              {(imagesByOption.get(o.id) ?? []).length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {(imagesByOption.get(o.id) ?? []).map((img) => (
+                    <figure key={img.id} className="shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- signed Supabase Storage URL */}
+                      <img
+                        src={img.url}
+                        alt={img.angle ?? o.label}
+                        className="h-32 w-44 rounded-lg border border-border object-cover"
+                      />
+                      {img.angle && (
+                        <figcaption className="mt-1 text-[10px] text-muted-foreground">{img.angle}</figcaption>
+                      )}
+                    </figure>
+                  ))}
+                </div>
+              )}
               <p className="text-sm text-muted-foreground">{o.rationale}</p>
               <p className="text-xs text-muted-foreground/70">
                 Sourcing: {o.sourcing_status.replace(/_/g, " ")}
