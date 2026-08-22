@@ -139,6 +139,11 @@ export function ConversationPanel({
         </div>
       )}
 
+      <p className="mb-1.5 text-xs text-muted-foreground">
+        Have room photos or a floor plan? Attach them below — that&apos;s the only way the
+        spatial model and design visuals can reflect your real room instead of a guess.
+      </p>
+
       {pendingAttachments.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
           {pendingAttachments.map((a) => (

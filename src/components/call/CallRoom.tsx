@@ -22,6 +22,7 @@ import { useCallSession } from "@/lib/webrtc/useCallSession";
 import { useLiveTranscription } from "@/lib/webrtc/useLiveTranscription";
 import { useWhisperTranscription } from "@/lib/webrtc/useWhisperTranscription";
 import { joinOrStartCallSession, endCallSession, sendToYoxaAction } from "./actions";
+import { AttachmentButton, type UploadedAttachment } from "@/components/conversation/AttachmentButton";
 
 interface Message {
   id: string;
@@ -50,6 +51,7 @@ export function CallRoom({
   const [joining, setJoining] = useState(false);
   const [messages, setMessages] = useState(initialMessages);
   const [typedDraft, setTypedDraft] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<UploadedAttachment[]>([]);
   // A count, not a boolean: live-call fragments can arrive faster than a
   // real Gemini reply comes back, so more than one of these can be in
   // flight at once.
@@ -172,8 +174,10 @@ export function CallRoom({
 
   async function sendTyped() {
     const text = typedDraft.trim();
-    if (!text) return;
+    if (!text && pendingAttachments.length === 0) return;
     setTypedDraft("");
+    const attachmentsToSend = pendingAttachments;
+    setPendingAttachments([]);
 
     const optimistic: Message = {
       id: `optimistic-${Date.now()}`,
@@ -189,7 +193,12 @@ export function CallRoom({
       const res = await fetch(`/api/projects/${projectId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, turnType: "new_message", callSessionId }),
+        body: JSON.stringify({
+          text,
+          turnType: "new_message",
+          callSessionId,
+          attachmentIds: attachmentsToSend.map((a) => a.id),
+        }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -353,7 +362,29 @@ export function CallRoom({
           <div ref={feedBottomRef} />
         </div>
 
+        <p className="px-1 text-xs text-muted-foreground">
+          Have room photos or a floor plan? Attach them below — that&apos;s the only way the
+          spatial model and design visuals can reflect your real room instead of a guess.
+        </p>
+
+        {pendingAttachments.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-1">
+            {pendingAttachments.map((a) => (
+              <span
+                key={a.id}
+                className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground"
+              >
+                {a.label}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center gap-2 rounded-full border border-border bg-card p-1.5">
+          <AttachmentButton
+            projectId={projectId}
+            onUploaded={(a) => setPendingAttachments((prev) => [...prev, a])}
+          />
           <input
             value={typedDraft}
             onChange={(e) => setTypedDraft(e.target.value)}
@@ -366,7 +397,12 @@ export function CallRoom({
             placeholder="Type instead of speaking…"
             className="flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
           />
-          <Button size="icon" onClick={sendTyped} disabled={!typedDraft.trim()} className="h-9 w-9 shrink-0 rounded-full">
+          <Button
+            size="icon"
+            onClick={sendTyped}
+            disabled={!typedDraft.trim() && pendingAttachments.length === 0}
+            className="h-9 w-9 shrink-0 rounded-full"
+          >
             <Sparkles className="h-4 w-4" />
           </Button>
         </div>
