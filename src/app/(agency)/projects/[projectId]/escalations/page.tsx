@@ -2,6 +2,7 @@ import { ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { EscalationResolutionForm } from "@/components/decisions/EscalationResolutionForm";
 import { HitlRequestCard, type HitlOption } from "@/components/decisions/HitlRequestCard";
+import { RenovationDnaSnapshot } from "@/components/decisions/RenovationDnaSnapshot";
 import { EmptyState } from "@/components/shared/EmptyState";
 
 export default async function EscalationsPage({
@@ -38,6 +39,7 @@ export default async function EscalationsPage({
           <h2 className="text-sm font-medium text-foreground/90">
             Renovagent needs a decision ({hitlRequests?.length ?? 0})
           </h2>
+          <RenovationDnaSnapshot projectId={projectId} />
           {(hitlRequests ?? []).map((r) => (
             <HitlRequestCard
               key={r.id}

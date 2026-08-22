@@ -6,6 +6,7 @@ import { QuestionRow } from "@/components/decisions/QuestionRow";
 import { ApprovalRequestCard } from "@/components/decisions/ApprovalRequestCard";
 import { EscalationCard } from "@/components/decisions/EscalationCard";
 import { HitlRequestCard, type HitlOption } from "@/components/decisions/HitlRequestCard";
+import { RenovationDnaSnapshot } from "@/components/decisions/RenovationDnaSnapshot";
 import { EmptyState } from "@/components/shared/EmptyState";
 
 export default async function QuestionsPage() {
@@ -87,6 +88,7 @@ export default async function QuestionsPage() {
         <EmptyState icon={CheckCircle2} iconClassName="text-accent" description="Nothing waiting on you right now." />
       )}
 
+      {(hitlRequests ?? []).length > 0 && <RenovationDnaSnapshot projectId={projectId} />}
       {(hitlRequests ?? []).map((r) => (
         <HitlRequestCard
           key={r.id}
