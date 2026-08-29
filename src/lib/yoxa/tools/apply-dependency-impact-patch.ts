@@ -85,6 +85,10 @@ export async function applyDependencyImpactPatch(
         domain: r.domain,
         state: r.state,
         reason: r.reason ?? null,
+        // Same provenance marker recordReadinessAssessment uses — this is
+        // a real downstream update from the Impact & Change Propagation
+        // Agent, not the recompute-readiness.ts heuristic.
+        source: "validation_agent",
         updated_at: new Date().toISOString(),
       })),
       { onConflict: "project_id,domain" }

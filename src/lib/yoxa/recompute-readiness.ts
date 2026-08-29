@@ -28,6 +28,23 @@ function validateReadiness(proposed: string, openConflicts: number): string {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function recomputeReadiness(supabase: SupabaseClient<any>, projectId: string, domain: Domain) {
+  // Back off entirely once this domain carries a real, independent
+  // assessment — recordReadinessAssessment (Validation Agent) and
+  // applyDependencyImpactPatch (Impact & Change Propagation Agent) both
+  // mark their writes source="validation_agent". Without this check, the
+  // very next unrelated evidence write on this domain — including from the
+  // live-call path — would silently overwrite that real assessment with
+  // this heuristic's own count-based guess, with no trace of what happened.
+  const { data: existing } = await supabase
+    .from("readiness")
+    .select("state, source")
+    .eq("project_id", projectId)
+    .eq("domain", domain)
+    .maybeSingle();
+  if (existing?.source === "validation_agent") {
+    return existing.state;
+  }
+
   const [{ count: evidenceCount }, { count: blockingQuestions }, { count: openConflicts }] =
     await Promise.all([
       supabase
@@ -65,7 +82,7 @@ export async function recomputeReadiness(supabase: SupabaseClient<any>, projectI
 
   await supabase
     .from("readiness")
-    .upsert({ project_id: projectId, domain, state, reason, updated_at: new Date().toISOString() });
+    .upsert({ project_id: projectId, domain, state, reason, source: "heuristic", updated_at: new Date().toISOString() });
 
   return state;
 }

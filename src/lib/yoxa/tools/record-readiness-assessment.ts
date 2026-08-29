@@ -39,6 +39,10 @@ export async function recordReadinessAssessment(
         domain: a.domain,
         state: a.state,
         reason: a.reason ?? null,
+        // Marks this as a real, independent assessment — see
+        // recompute-readiness.ts, which backs off once a domain carries
+        // this source rather than silently overwriting it.
+        source: "validation_agent",
         updated_at: new Date().toISOString(),
       })),
       { onConflict: "project_id,domain" }
