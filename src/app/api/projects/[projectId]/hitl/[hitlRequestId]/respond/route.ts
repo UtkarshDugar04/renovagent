@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getProjectRole } from "@/lib/auth/project-access";
+import { deriveDeploymentIdFromTriggerUrl } from "@/lib/yoxa/trigger";
 
 // POST /api/projects/:projectId/hitl/:hitlRequestId/respond
 // Called by our own authenticated UI once a human picks an option (or
@@ -48,11 +49,22 @@ export async function POST(
     return NextResponse.json({ error: "HITL response is not configured on this deployment" }, { status: 503 });
   }
 
+  // A run must be answered against the deployment it was actually
+  // triggered under — not whichever deployment YOXA_TRIGGER_URL currently
+  // points to, which can have moved on since (confirmed live: Yoxa 403s a
+  // response sent to the wrong deployment). Prefer the id recorded on the
+  // run at trigger time; only fall back to the current env var for rows
+  // from before that was tracked.
+  const { data: run } = await service
+    .from("workflow_runs")
+    .select("deployment_id")
+    .eq("workflow_run_id", hitlRequest.workflow_run_id)
+    .maybeSingle();
+
   const parsedTriggerUrl = new URL(triggerUrl);
-  const deploymentMatch = parsedTriggerUrl.pathname.match(/\/workflow-deployments\/([^/]+)\//);
-  const deploymentId = deploymentMatch?.[1];
+  const deploymentId = run?.deployment_id ?? deriveDeploymentIdFromTriggerUrl(triggerUrl);
   if (!deploymentId) {
-    return NextResponse.json({ error: "Could not derive deployment id from YOXA_TRIGGER_URL" }, { status: 500 });
+    return NextResponse.json({ error: "Could not determine which Yoxa deployment this run belongs to" }, { status: 500 });
   }
 
   const respondUrl = `${parsedTriggerUrl.origin}/api/v1/public/workflow-deployments/${deploymentId}/hitl/requests/${hitlRequest.yoxa_request_id}/respond`;

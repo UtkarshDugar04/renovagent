@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   graphql_public: {
     Tables: {
@@ -1234,6 +1234,7 @@ export type Database = {
           domain: Database["public"]["Enums"]["domain_type"]
           project_id: string
           reason: string | null
+          source: string
           state: Database["public"]["Enums"]["readiness_state"]
           updated_at: string
         }
@@ -1241,6 +1242,7 @@ export type Database = {
           domain: Database["public"]["Enums"]["domain_type"]
           project_id: string
           reason?: string | null
+          source?: string
           state?: Database["public"]["Enums"]["readiness_state"]
           updated_at?: string
         }
@@ -1248,6 +1250,7 @@ export type Database = {
           domain?: Database["public"]["Enums"]["domain_type"]
           project_id?: string
           reason?: string | null
+          source?: string
           state?: Database["public"]["Enums"]["readiness_state"]
           updated_at?: string
         }
@@ -1396,16 +1399,19 @@ export type Database = {
       workflow_runs: {
         Row: {
           created_at: string
+          deployment_id: string | null
           project_id: string
           workflow_run_id: string
         }
         Insert: {
           created_at?: string
+          deployment_id?: string | null
           project_id: string
           workflow_run_id: string
         }
         Update: {
           created_at?: string
+          deployment_id?: string | null
           project_id?: string
           workflow_run_id?: string
         }

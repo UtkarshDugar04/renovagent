@@ -95,7 +95,7 @@ export async function sendToYoxa(
 
   const { error: insertError } = await supabase
     .from("workflow_runs")
-    .insert({ workflow_run_id: result.workflowRunId, project_id: projectId });
+    .insert({ workflow_run_id: result.workflowRunId, project_id: projectId, deployment_id: result.deploymentId });
   if (insertError) {
     // The Yoxa run is already live at this point — surfacing this as a
     // failure would be misleading. Log it; a stray unrecorded run just

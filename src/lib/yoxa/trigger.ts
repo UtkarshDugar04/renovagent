@@ -34,7 +34,23 @@ export interface TriggerYoxaResult {
   ok: boolean;
   statusCode: number;
   workflowRunId: string | null;
+  deploymentId: string | null;
   rawBody: string;
+}
+
+// Shared with the HITL respond route, which must answer a request against
+// the same deployment its run was triggered under — not whichever
+// deployment YOXA_TRIGGER_URL currently points to. See
+// 20260830000000_workflow_runs_deployment_id.sql for why that distinction
+// matters.
+export function deriveDeploymentIdFromTriggerUrl(triggerUrl: string): string | null {
+  try {
+    const parsed = new URL(triggerUrl);
+    const match = parsed.pathname.match(/\/workflow-deployments\/([^/]+)\//);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function triggerYoxaWorkflow(input: TriggerYoxaInput): Promise<TriggerYoxaResult> {
@@ -42,7 +58,7 @@ export async function triggerYoxaWorkflow(input: TriggerYoxaInput): Promise<Trig
   const secret = process.env.YOXA_DEPLOYMENT_SECRET;
 
   if (!triggerUrl || !secret) {
-    return { ok: false, statusCode: 0, workflowRunId: null, rawBody: "YOXA_TRIGGER_URL or YOXA_DEPLOYMENT_SECRET not configured" };
+    return { ok: false, statusCode: 0, workflowRunId: null, deploymentId: null, rawBody: "YOXA_TRIGGER_URL or YOXA_DEPLOYMENT_SECRET not configured" };
   }
 
   const triggerText = `[RENOVAGENT_CONTEXT project_id=${input.projectId} sender_role=${input.senderRole}]\n${input.messageText}`;
@@ -82,5 +98,11 @@ export async function triggerYoxaWorkflow(input: TriggerYoxaInput): Promise<Trig
     // Non-JSON response — leave workflowRunId null, caller sees rawBody.
   }
 
-  return { ok: response.ok, statusCode: response.status, workflowRunId, rawBody };
+  return {
+    ok: response.ok,
+    statusCode: response.status,
+    workflowRunId,
+    deploymentId: deriveDeploymentIdFromTriggerUrl(triggerUrl),
+    rawBody,
+  };
 }
