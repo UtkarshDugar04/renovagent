@@ -31,8 +31,8 @@ export default async function EscalationsPage({
     override_message: string | null;
   }): string {
     if (request.override_message) return request.override_message;
-    const options = Array.isArray(request.options) ? (request.options as { optionId?: string; title?: string }[]) : [];
-    const matched = options.find((o) => o.optionId === request.selected_option_id);
+    const options = Array.isArray(request.options) ? (request.options as { option_id?: string; title?: string }[]) : [];
+    const matched = options.find((o) => o.option_id === request.selected_option_id);
     return matched?.title ?? request.selected_option_id ?? "Answered";
   }
 

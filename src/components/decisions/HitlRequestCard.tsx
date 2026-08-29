@@ -55,7 +55,7 @@ export function HitlRequestCard({ projectId, request }: { projectId: string; req
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [overrideText, setOverrideText] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [answered, setAnswered] = useState(false);
+  const [answeredSummary, setAnsweredSummary] = useState<string | null>(null);
 
   async function submit(body: { selectedOptionId?: string; overrideMessage?: string }) {
     setError(null);
@@ -68,7 +68,10 @@ export function HitlRequestCard({ projectId, request }: { projectId: string; req
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to submit");
-      setAnswered(true);
+      const summary = body.selectedOptionId
+        ? (request.options.find((o) => o.option_id === body.selectedOptionId)?.title ?? "Selected")
+        : (body.overrideMessage ?? "Sent");
+      setAnsweredSummary(summary);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to submit");
     } finally {
@@ -76,18 +79,22 @@ export function HitlRequestCard({ projectId, request }: { projectId: string; req
     }
   }
 
-  if (answered) {
+  if (answeredSummary !== null) {
     return (
       <Card className="border-0">
-        <CardContent className="py-4 text-sm text-muted-foreground">
-          Decision submitted for &quot;{request.title}&quot;.
+        <CardContent className="py-4 text-sm">
+          <span className="text-muted-foreground">{request.title}</span>
+          <span className="ml-2 text-accent">→ {answeredSummary}</span>
         </CardContent>
       </Card>
     );
   }
 
   const sections = request.description ? parseSections(request.description) : [];
-  const structured = sections.filter((s) => s.heading).length >= 2;
+  const structured = sections.filter((s) => s.heading).length >= 1;
+  const paragraphs = request.description
+    ? request.description.split(/\n+/).map((l) => l.trim()).filter(Boolean)
+    : [];
 
   return (
     <Card className="border-0 border-l-2 border-l-primary">
@@ -114,8 +121,14 @@ export function HitlRequestCard({ projectId, request }: { projectId: string; req
             )}
           </div>
         ) : (
-          request.description && (
-            <p className="text-sm text-muted-foreground">{request.description}</p>
+          paragraphs.length > 0 && (
+            <div className="space-y-2">
+              {paragraphs.map((paragraph, i) => (
+                <p key={i} className="text-sm leading-relaxed text-muted-foreground">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
           )
         )}
 
