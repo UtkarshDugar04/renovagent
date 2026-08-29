@@ -43,10 +43,10 @@ export interface ExtractedEvidence {
 }
 
 export interface TurnResponse {
-  conversationalReply: string;
   extractedEvidence: ExtractedEvidence[];
   gaps: { question: string; domain: Domain; severity: Severity; whyItMatters: string }[];
   nextBestAction: "ask_conversation" | "propose_design" | "request_verification" | "none";
+  conversationalReply: string;
 }
 
 const DOMAINS: Domain[] = ["family", "spatial", "preference", "budget", "constraint"];
@@ -59,14 +59,15 @@ const CONFIDENCE_LEVELS: Confidence[] = ["unknown", "low", "medium", "high"];
 const SEVERITIES: Severity[] = ["e0", "e1", "e2", "e3", "e4", "e5"];
 const NEXT_ACTIONS = ["ask_conversation", "propose_design", "request_verification", "none"];
 
+// Field order below is deliberate, not cosmetic: structured generation
+// writes fields in the order they're declared, so extraction and gap-
+// finding must come before conversationalReply — otherwise the model
+// commits to what it's going to say before it's actually processed what
+// the current message just told it, which is exactly how it ends up
+// re-asking something the message it's replying to just answered.
 const RESPONSE_SCHEMA = {
   type: "object",
   properties: {
-    conversationalReply: {
-      type: "string",
-      description:
-        "What to say back, in a warm, natural, conversational tone — never a form or a checklist. Empty string only if turnType is call_transcript and this fragment genuinely doesn't warrant interjecting (e.g. mid-thought, or nothing new).",
-    },
     extractedEvidence: {
       type: "array",
       items: {
@@ -81,7 +82,7 @@ const RESPONSE_SCHEMA = {
         additionalProperties: false,
       },
       description:
-        "Only what THIS message explicitly states — never inferred beyond what was actually said, never duplicated from context already listed as an open question or prior evidence.",
+        "Only what THIS message explicitly states — never inferred beyond what was actually said, never duplicated from context already listed as an open question or prior evidence. Work this out BEFORE writing conversationalReply, so the reply can actually reflect what was just learned.",
     },
     gaps: {
       type: "array",
@@ -99,8 +100,13 @@ const RESPONSE_SCHEMA = {
       description: "New open questions this message surfaced — only genuinely new ones, not restating existing open questions.",
     },
     nextBestAction: { type: "string", enum: NEXT_ACTIONS },
+    conversationalReply: {
+      type: "string",
+      description:
+        "What to say back, in a warm, natural, conversational tone — never a form or a checklist. Written LAST, after extractedEvidence and gaps above: if what the current message just said already resolves the thing you were about to ask, do not ask it — pick a genuinely different next question instead. Empty string only if turnType is call_transcript and this fragment genuinely doesn't warrant interjecting (e.g. mid-thought, or nothing new).",
+    },
   },
-  required: ["conversationalReply", "extractedEvidence", "gaps", "nextBestAction"],
+  required: ["extractedEvidence", "gaps", "nextBestAction", "conversationalReply"],
   additionalProperties: false,
 };
 
@@ -117,6 +123,7 @@ YOUR JOB, AND YOUR PACE
 Build a real picture of this household's renovation — but you are working against a real clock, not running an unhurried, exploratory interview. Your top priority every turn is closing the biggest gap across the five domains (family, spatial, preference, budget, constraint) as directly as possible:
 - Look at "Domain readiness so far" AND "What we already know" every turn before deciding what to ask. Aim your next question at whichever domain is furthest behind (still not_started or discovery_in_progress) rather than going deeper on a domain that already has decent coverage.
 - NEVER re-ask something already covered by "What we already know" or by an existing open question — not even rephrased. If you are about to ask something and a close match already appears in either list, that question is done; move to a genuinely new angle or a different domain instead.
+- This applies just as much to what the CURRENT message just told you, not only to prior context: before writing conversationalReply, check whether the thing you were about to ask is exactly what this message just answered — even if phrased loosely ("anything works", "either is fine"). A loose answer is still an answer; treat it as resolved and move on, don't press for a more precise phrasing of the same question.
 - Once a domain has at least one real answer, your next question in that SAME domain must go one level more specific than what's already known — a named material, an exact number, a concrete constraint, a specific room or person — never a second general-purpose question covering ground you already have. A domain reaching "enough for a basic picture" means enough specific detail to act on, not just one broad answer.
 - Ask direct, specific, answerable questions — not open-ended prompts that invite a long tangent. "What's your total budget range for this?" beats "Tell me about your budget."
 - Breadth across all five domains still comes before depth on any one of them — but "breadth" means covering domains that have nothing yet, not staying shallow forever on domains you've already touched.

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Domain } from "@/lib/types/domain";
 import { Card, CardContent } from "@/components/ui/card";
 import { readinessTone, TONE_CLASSES } from "@/lib/status-styles";
+import { backfillConversationBrief } from "./actions";
 
 const DOMAIN_LABELS: Record<Domain, string> = {
   family: "Family",
@@ -61,8 +62,9 @@ export default async function ProjectOverviewPage({
   const domains: Domain[] = ["family", "spatial", "preference", "budget", "constraint"];
   const readinessByDomain = Object.fromEntries((readiness ?? []).map((r) => [r.domain, r]));
 
-  // Only exists for projects sent after send-to-yoxa.ts started storing it;
-  // absent (and this link simply doesn't render) for anything sent before.
+  // Absent for projects sent before send-to-yoxa.ts started storing this —
+  // the banner below falls back to an on-demand "Generate conversation
+  // brief" action (actions.ts) for those instead of just hiding the link.
   let conversationBriefUrl: string | null = null;
   if (yoxaRun) {
     const { data: signed } = await supabase.storage
@@ -103,7 +105,7 @@ export default async function ProjectOverviewPage({
               <Send className="h-4 w-4 shrink-0" />
               Sent to Yoxa on {new Date(yoxaRun.created_at).toLocaleDateString()} — planning and design work is underway.
             </span>
-            {conversationBriefUrl && (
+            {conversationBriefUrl ? (
               <a
                 href={conversationBriefUrl}
                 target="_blank"
@@ -112,6 +114,12 @@ export default async function ProjectOverviewPage({
               >
                 Download conversation brief
               </a>
+            ) : (
+              <form action={backfillConversationBrief.bind(null, projectId)} className="shrink-0">
+                <button type="submit" className="text-xs underline underline-offset-2">
+                  Generate conversation brief
+                </button>
+              </form>
             )}
           </div>
         ) : (
