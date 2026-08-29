@@ -15,14 +15,9 @@ export default async function ProjectListPage() {
 
   const projectIds = (projects ?? []).map((p) => p.id);
 
-  const [{ data: openEscalations }, { data: openQuestions }, { data: readiness }, { data: sentRuns }] =
+  const [{ data: openQuestions }, { data: readiness }, { data: sentRuns }] =
     projectIds.length > 0
       ? await Promise.all([
-          supabase
-            .from("escalations")
-            .select("project_id")
-            .in("project_id", projectIds)
-            .eq("status", "open"),
           supabase
             .from("questions")
             .select("project_id")
@@ -37,7 +32,7 @@ export default async function ProjectListPage() {
             .select("project_id")
             .in("project_id", projectIds),
         ])
-      : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+      : [{ data: [] }, { data: [] }, { data: [] }];
 
   const sentProjectIds = new Set((sentRuns ?? []).map((r) => r.project_id));
 
@@ -62,7 +57,6 @@ export default async function ProjectListPage() {
 
       <div className="space-y-2">
         {(projects ?? []).map((p) => {
-          const escalationCount = countFor(openEscalations, p.id);
           const questionCount = countFor(openQuestions, p.id);
 
           return (
@@ -88,11 +82,6 @@ export default async function ProjectListPage() {
                     {questionCount > 0 && (
                       <Badge className="bg-primary/10 text-xs text-primary">
                         {questionCount} open
-                      </Badge>
-                    )}
-                    {escalationCount > 0 && (
-                      <Badge className="bg-destructive/10 text-xs text-destructive">
-                        {escalationCount} escalation{escalationCount > 1 ? "s" : ""}
                       </Badge>
                     )}
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />

@@ -146,14 +146,24 @@ export function ConversationPanel({
 
       {pendingAttachments.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
-          {pendingAttachments.map((a) => (
-            <span
-              key={a.id}
-              className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground"
-            >
-              {a.label}
-            </span>
-          ))}
+          {pendingAttachments.map((a) =>
+            a.previewUrl ? (
+              <img
+                key={a.id}
+                src={a.previewUrl}
+                alt={a.label}
+                title={a.label}
+                className="h-10 w-10 rounded-md border border-border object-cover"
+              />
+            ) : (
+              <span
+                key={a.id}
+                className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground"
+              >
+                {a.label}
+              </span>
+            )
+          )}
         </div>
       )}
 

@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 export interface UploadedAttachment {
   id: string;
   label: string;
+  previewUrl: string | null;
 }
 
 export function AttachmentButton({
@@ -48,7 +49,13 @@ export function AttachmentButton({
 
       if (dbError || !attachment) throw dbError;
 
-      onUploaded({ id: attachment.id, label: attachment.label ?? file.name });
+      // Local object URL, not a signed storage URL — instant, no round
+      // trip, and only needed for the fleeting pre-send preview chip. The
+      // real signed URL is generated server-side wherever this attachment
+      // is displayed after it's actually sent.
+      const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
+
+      onUploaded({ id: attachment.id, label: attachment.label ?? file.name, previewUrl });
 
       // Fire-and-forget: the route responds immediately and does the real
       // Gemini pass in the background. Evidence it writes shows up on

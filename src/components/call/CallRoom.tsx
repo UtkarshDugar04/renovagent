@@ -51,6 +51,8 @@ export function CallRoom({
   const [joining, setJoining] = useState(false);
   const [messages, setMessages] = useState(initialMessages);
   const [typedDraft, setTypedDraft] = useState("");
+  const [typedSendError, setTypedSendError] = useState<string | null>(null);
+  const [transcriptSendError, setTranscriptSendError] = useState<string | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<UploadedAttachment[]>([]);
   // A count, not a boolean: live-call fragments can arrive faster than a
   // real Gemini reply comes back, so more than one of these can be in
@@ -69,14 +71,17 @@ export function CallRoom({
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const feedBottomRef = useRef<HTMLDivElement>(null);
 
+  // Shared by the realtime subscription and every send path below: adds a
+  // row only if its real id isn't already present. No synthetic-id
+  // optimistic entries anywhere in this component — a row only ever enters
+  // state carrying the real id the database gave it, so no matter which
+  // path adds it first (the send response or the realtime event), the
+  // other one is a no-op instead of a duplicate bubble.
+  function addMessage(row: Message) {
+    setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+  }
+
   async function postSegment(text: string) {
-    // No optimistic local insert here: the realtime subscription below
-    // already adds this exact row once the server inserts it, deduped by
-    // its real id. An optimistic entry needs a synthetic id (the real one
-    // doesn't exist yet), which the realtime handler's id-based dedup can
-    // never match against the row that arrives moments later — the same
-    // segment ends up rendered twice. Realtime latency here is sub-second,
-    // so the round trip is not perceptible.
     setPendingReplies((n) => n + 1);
 
     try {
@@ -87,10 +92,18 @@ export function CallRoom({
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.reply) {
-          setMessages((prev) => [...prev, data.reply]);
-        }
+        if (data.message) addMessage(data.message);
+        if (data.reply) addMessage(data.reply);
+        setTranscriptSendError(null);
+      } else {
+        // Unlike the typed composer, a spoken segment has no draft to
+        // restore — it's already gone once the live transcription callback
+        // fires. The only honest recovery is telling whoever's on the call
+        // that something may not have been captured, not failing silently.
+        setTranscriptSendError("Part of the conversation may not have saved — check your connection.");
       }
+    } catch {
+      setTranscriptSendError("Part of the conversation may not have saved — check your connection.");
     } finally {
       setPendingReplies((n) => n - 1);
     }
@@ -146,10 +159,7 @@ export function CallRoom({
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "conversation_messages", filter: `project_id=eq.${projectId}` },
-        (payload) => {
-          const row = payload.new as Message;
-          setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
-        }
+        (payload) => addMessage(payload.new as Message)
       )
       .on(
         "postgres_changes",
@@ -178,15 +188,7 @@ export function CallRoom({
     setTypedDraft("");
     const attachmentsToSend = pendingAttachments;
     setPendingAttachments([]);
-
-    const optimistic: Message = {
-      id: `optimistic-${Date.now()}`,
-      sender_role: currentRole,
-      text,
-      turn_type: "new_message",
-      created_at: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, optimistic]);
+    setTypedSendError(null);
     setPendingReplies((n) => n + 1);
 
     try {
@@ -202,8 +204,20 @@ export function CallRoom({
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.reply) setMessages((prev) => [...prev, data.reply]);
+        if (data.message) addMessage(data.message);
+        if (data.reply) addMessage(data.reply);
+      } else {
+        // Restore the draft so nothing typed is silently lost — with no
+        // optimistic insert, a failed send would otherwise vanish with
+        // zero trace and zero feedback.
+        setTypedDraft(text);
+        setPendingAttachments(attachmentsToSend);
+        setTypedSendError("That didn't send — check your connection and try again.");
       }
+    } catch {
+      setTypedDraft(text);
+      setPendingAttachments(attachmentsToSend);
+      setTypedSendError("That didn't send — check your connection and try again.");
     } finally {
       setPendingReplies((n) => n - 1);
     }
@@ -362,6 +376,10 @@ export function CallRoom({
           <div ref={feedBottomRef} />
         </div>
 
+        {transcriptSendError && (
+          <p className="px-1 text-xs text-destructive">{transcriptSendError}</p>
+        )}
+
         <p className="px-1 text-xs text-muted-foreground">
           Have room photos or a floor plan? Attach them below — that&apos;s the only way the
           spatial model and design visuals can reflect your real room instead of a guess.
@@ -369,15 +387,29 @@ export function CallRoom({
 
         {pendingAttachments.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-1">
-            {pendingAttachments.map((a) => (
-              <span
-                key={a.id}
-                className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground"
-              >
-                {a.label}
-              </span>
-            ))}
+            {pendingAttachments.map((a) =>
+              a.previewUrl ? (
+                <img
+                  key={a.id}
+                  src={a.previewUrl}
+                  alt={a.label}
+                  title={a.label}
+                  className="h-10 w-10 rounded-md border border-border object-cover"
+                />
+              ) : (
+                <span
+                  key={a.id}
+                  className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground"
+                >
+                  {a.label}
+                </span>
+              )
+            )}
           </div>
+        )}
+
+        {typedSendError && (
+          <p className="px-1 text-xs text-destructive">{typedSendError}</p>
         )}
 
         <div className="flex items-center gap-2 rounded-full border border-border bg-card p-1.5">
@@ -387,7 +419,10 @@ export function CallRoom({
           />
           <input
             value={typedDraft}
-            onChange={(e) => setTypedDraft(e.target.value)}
+            onChange={(e) => {
+              setTypedDraft(e.target.value);
+              if (typedSendError) setTypedSendError(null);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();

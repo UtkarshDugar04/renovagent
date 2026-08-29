@@ -31,6 +31,7 @@ export interface TurnRequest {
     recentConversation: { role: string; text: string }[];
     openQuestions: { id: string; text: string; domain: string; severity: string }[];
     domainReadiness: Record<string, string>;
+    knownEvidence: { domain: string; statements: string[] }[];
   };
 }
 
@@ -114,9 +115,11 @@ Getting this wrong — replying to the agency's question as if it were addressed
 
 YOUR JOB, AND YOUR PACE
 Build a real picture of this household's renovation — but you are working against a real clock, not running an unhurried, exploratory interview. Your top priority every turn is closing the biggest gap across the five domains (family, spatial, preference, budget, constraint) as directly as possible:
-- Look at "Domain readiness so far" every turn. Aim your next question at whichever domain is furthest behind (still not_started or discovery_in_progress) rather than going deeper on a domain that already has decent coverage.
+- Look at "Domain readiness so far" AND "What we already know" every turn before deciding what to ask. Aim your next question at whichever domain is furthest behind (still not_started or discovery_in_progress) rather than going deeper on a domain that already has decent coverage.
+- NEVER re-ask something already covered by "What we already know" or by an existing open question — not even rephrased. If you are about to ask something and a close match already appears in either list, that question is done; move to a genuinely new angle or a different domain instead.
+- Once a domain has at least one real answer, your next question in that SAME domain must go one level more specific than what's already known — a named material, an exact number, a concrete constraint, a specific room or person — never a second general-purpose question covering ground you already have. A domain reaching "enough for a basic picture" means enough specific detail to act on, not just one broad answer.
 - Ask direct, specific, answerable questions — not open-ended prompts that invite a long tangent. "What's your total budget range for this?" beats "Tell me about your budget."
-- Once a domain has enough for a basic real picture, move on to the next gap rather than continuing to probe it for extra depth. Breadth across all five first; depth is a later-round luxury, not this call's job.
+- Breadth across all five domains still comes before depth on any one of them — but "breadth" means covering domains that have nothing yet, not staying shallow forever on domains you've already touched.
 - Keep your own replies short — one focused question or a brief acknowledgment plus a question, never a paragraph. You are one voice in a live conversation, not a form, but you also aren't the one talking most of the time.
 
 You may ALSO tag lightweight structured evidence for anything explicitly and unambiguously stated in THIS message — but this is a nicety, not your primary job. The authoritative extraction happens later from the full call transcript, so:
@@ -148,6 +151,16 @@ function buildPrompt(request: TurnRequest): string {
   lines.push("Domain readiness so far:");
   for (const domain of DOMAINS) {
     lines.push(`- ${domain}: ${request.context.domainReadiness[domain] ?? "not_started"}`);
+  }
+
+  if (request.context.knownEvidence.length > 0) {
+    lines.push("");
+    lines.push("What we already know (do not re-ask any of this — go more specific instead):");
+    for (const d of request.context.knownEvidence) {
+      for (const s of d.statements) {
+        lines.push(`- [${d.domain}] ${s}`);
+      }
+    }
   }
 
   if (request.context.openQuestions.length > 0) {

@@ -23,9 +23,19 @@ export async function fetchAndStoreImage(
   pathPrefix: string,
   imageUrl: string
 ): Promise<{ storagePath: string }> {
+  // Yoxa's Output Tool: Image hands agents a same-origin path (e.g.
+  // "/api/v1/workflow-runs/.../download"), not a full URL — resolve it
+  // against Yoxa's own domain rather than assuming it's already absolute.
+  let resolvedUrl: string;
+  try {
+    resolvedUrl = new URL(imageUrl, "https://yoxa.ai").toString();
+  } catch {
+    throw new ToolError(400, `Could not parse the provided image URL: "${imageUrl}"`);
+  }
+
   let response: Response;
   try {
-    response = await fetch(imageUrl);
+    response = await fetch(resolvedUrl);
   } catch (err) {
     throw new ToolError(502, `Could not reach the provided image URL: ${err instanceof Error ? err.message : String(err)}`);
   }

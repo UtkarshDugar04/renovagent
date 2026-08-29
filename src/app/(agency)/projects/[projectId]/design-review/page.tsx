@@ -20,18 +20,24 @@ export default async function DesignReviewPage({
     .eq("project_id", projectId)
     .order("created_at", { ascending: false });
 
-  const { data: validations } = await supabase
-    .from("validation_results")
-    .select("id, mode, target_id, result, failed_criteria, unresolved_risks, human_decision_required, created_at")
+  // The Validation Agent's real findings never land in validation_results —
+  // nothing in the Yoxa flow writes to that table (a gap Yoxa's own step
+  // instructions flag: there's no tool to link a validation finding to a
+  // specific design option). Real findings land as generic `evidence` rows,
+  // evidence_type=verification, with the option's id embedded directly in
+  // the statement text (confirmed from live data, e.g. "...Round 2 revision
+  // (b91507ee-...): NOT VALIDATED..."), which is what we match on here.
+  const { data: verificationEvidence } = await supabase
+    .from("evidence")
+    .select("id, domain, statement, status, created_at")
     .eq("project_id", projectId)
+    .eq("evidence_type", "verification")
     .order("created_at", { ascending: false });
 
-  const validationsByTarget = new Map<string, typeof validations>();
-  for (const v of validations ?? []) {
-    if (!v.target_id) continue;
-    const existing = validationsByTarget.get(v.target_id) ?? [];
-    existing.push(v);
-    validationsByTarget.set(v.target_id, existing);
+  const findingsByOption = new Map<string, typeof verificationEvidence>();
+  for (const option of options ?? []) {
+    const matches = (verificationEvidence ?? []).filter((e) => e.statement.includes(option.id));
+    if (matches.length > 0) findingsByOption.set(option.id, matches);
   }
 
   if (!options || options.length === 0) {
@@ -55,7 +61,7 @@ export default async function DesignReviewPage({
   return (
     <div className="space-y-4">
       {options.map((o) => {
-        const optionValidations = validationsByTarget.get(o.id) ?? [];
+        const optionFindings = findingsByOption.get(o.id) ?? [];
         return (
           <Card key={o.id}>
             <CardHeader>
@@ -97,24 +103,19 @@ export default async function DesignReviewPage({
                 Sourcing: {o.sourcing_status.replace(/_/g, " ")}
               </p>
 
-              {optionValidations.length > 0 && (
-                <div className="space-y-1 border-t border-border pt-2">
-                  <p className="text-xs font-medium text-foreground/80">Validation history</p>
-                  {optionValidations.map((v) => (
-                    <div key={v!.id} className="text-xs text-muted-foreground">
-                      <span className={v!.result === "pass" ? "text-accent" : "text-destructive"}>
-                        {v!.result}
+              {optionFindings.length > 0 && (
+                <div className="space-y-1.5 border-t border-border pt-2">
+                  <p className="text-xs font-medium text-foreground/80">Validation findings</p>
+                  {optionFindings.map((f) => (
+                    <div key={f!.id} className="text-xs text-muted-foreground">
+                      <span
+                        className={
+                          f!.status === "verified" ? "text-accent" : "text-destructive"
+                        }
+                      >
+                        {(f!.status ?? "unresolved").replace(/_/g, " ")} · {f!.domain}
                       </span>
-                      {v!.human_decision_required && (
-                        <span className="ml-1 text-primary">— human decision required</span>
-                      )}
-                      {Array.isArray(v!.failed_criteria) && v!.failed_criteria.length > 0 && (
-                        <ul className="ml-3 list-disc text-destructive/80">
-                          {(v!.failed_criteria as { criterion: string }[]).map((f, i) => (
-                            <li key={i}>{f.criterion}</li>
-                          ))}
-                        </ul>
-                      )}
+                      <p className="mt-0.5">{f!.statement}</p>
                     </div>
                   ))}
                 </div>

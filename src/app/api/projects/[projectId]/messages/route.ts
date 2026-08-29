@@ -57,12 +57,16 @@ export async function POST(
   }
 
   // 2. Assemble scoped context.
+  // 24 messages rather than 6: on a longer call the model needs to still
+  // see earlier answers directly, not just infer them from a readiness
+  // label — otherwise it re-asks something it was already told (observed
+  // live: the same budget question logged twice in one call).
   const { data: recentMessages } = await supabase
     .from("conversation_messages")
     .select("sender_role, text")
     .eq("project_id", projectId)
     .order("created_at", { ascending: false })
-    .limit(6);
+    .limit(24);
 
   const { data: openQuestions } = await supabase
     .from("questions")
@@ -74,6 +78,29 @@ export async function POST(
     .from("readiness")
     .select("domain, state")
     .eq("project_id", projectId);
+
+  // Compact, per-domain digest of what's already been established — the
+  // readiness label alone ("discovery_in_progress") tells the model
+  // nothing about content, which is the other half of why it loses track
+  // of earlier answers on a longer call.
+  const { data: knownEvidenceRows } = await supabase
+    .from("evidence")
+    .select("domain, statement")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false })
+    .limit(40);
+
+  const knownEvidenceByDomain = new Map<string, string[]>();
+  for (const row of knownEvidenceRows ?? []) {
+    if (!row.domain) continue;
+    const list = knownEvidenceByDomain.get(row.domain) ?? [];
+    if (list.length < 3) list.push(row.statement);
+    knownEvidenceByDomain.set(row.domain, list);
+  }
+  const knownEvidence = Array.from(knownEvidenceByDomain.entries()).map(([domain, statements]) => ({
+    domain,
+    statements,
+  }));
 
   const { data: attachmentRows } = attachmentIds.length > 0
     ? await supabase
@@ -105,6 +132,7 @@ export async function POST(
         severity: q.severity,
       })),
       domainReadiness: Object.fromEntries((readinessRows ?? []).map((r) => [r.domain, r.state])),
+      knownEvidence,
     },
   });
 
@@ -134,16 +162,49 @@ export async function POST(
     }
   }
 
+  // Structural backstop against a literal duplicate question, in addition
+  // to the prompt-level instruction not to re-ask — observed live: the
+  // same "what's your budget range" question logged twice in one call.
+  // Skip a new gap whose normalized text closely matches an already-open
+  // question in the same domain, or another gap already accepted this turn.
+  function normalizeQuestionText(text: string): string {
+    return text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
+  }
+  function isDuplicateQuestion(candidate: string, existing: string[]): boolean {
+    const normCandidate = normalizeQuestionText(candidate);
+    return existing.some((e) => {
+      const normExisting = normalizeQuestionText(e);
+      return normCandidate === normExisting || normCandidate.includes(normExisting) || normExisting.includes(normCandidate);
+    });
+  }
+
   if (turnResult.gaps.length > 0) {
-    await supabase.from("questions").insert(
-      turnResult.gaps.map((g) => ({
-        project_id: projectId,
-        domain: g.domain,
-        question_text: g.question,
-        why_it_matters: g.whyItMatters,
-        severity: g.severity,
-      }))
-    );
+    const existingOpenTextByDomain = new Map<string, string[]>();
+    for (const q of openQuestions ?? []) {
+      const list = existingOpenTextByDomain.get(q.domain ?? "") ?? [];
+      list.push(q.question_text);
+      existingOpenTextByDomain.set(q.domain ?? "", list);
+    }
+
+    const acceptedGaps: typeof turnResult.gaps = [];
+    for (const gap of turnResult.gaps) {
+      const alreadyOpen = existingOpenTextByDomain.get(gap.domain) ?? [];
+      const alreadyAccepted = acceptedGaps.filter((g) => g.domain === gap.domain).map((g) => g.question);
+      if (isDuplicateQuestion(gap.question, [...alreadyOpen, ...alreadyAccepted])) continue;
+      acceptedGaps.push(gap);
+    }
+
+    if (acceptedGaps.length > 0) {
+      await supabase.from("questions").insert(
+        acceptedGaps.map((g) => ({
+          project_id: projectId,
+          domain: g.domain,
+          question_text: g.question,
+          why_it_matters: g.whyItMatters,
+          severity: g.severity,
+        }))
+      );
+    }
   }
 
   // 5. Log the reply as a message + an activity event. Call-transcript turns
@@ -173,6 +234,7 @@ export async function POST(
   });
 
   return NextResponse.json({
+    message,
     reply: replyMessage,
     extractedEvidenceCount: turnResult.extractedEvidence.length,
     newQuestionsCount: turnResult.gaps.length,

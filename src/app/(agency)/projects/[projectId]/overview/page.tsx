@@ -3,7 +3,6 @@ import { Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { Domain } from "@/lib/types/domain";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { readinessTone, TONE_CLASSES } from "@/lib/status-styles";
 
 const DOMAIN_LABELS: Record<Domain, string> = {
@@ -24,7 +23,6 @@ export default async function ProjectOverviewPage({
     { data: readiness },
     { data: openQuestions },
     { data: openConflicts },
-    { data: openEscalations },
     { data: recentEvents },
     { data: project },
     { data: yoxaRun },
@@ -39,11 +37,6 @@ export default async function ProjectOverviewPage({
     supabase
       .from("conflicts")
       .select("id, reason")
-      .eq("project_id", projectId)
-      .eq("status", "open"),
-    supabase
-      .from("escalations")
-      .select("id, question, trigger, required_authority")
       .eq("project_id", projectId)
       .eq("status", "open"),
     supabase
@@ -67,6 +60,16 @@ export default async function ProjectOverviewPage({
 
   const domains: Domain[] = ["family", "spatial", "preference", "budget", "constraint"];
   const readinessByDomain = Object.fromEntries((readiness ?? []).map((r) => [r.domain, r]));
+
+  // Only exists for projects sent after send-to-yoxa.ts started storing it;
+  // absent (and this link simply doesn't render) for anything sent before.
+  let conversationBriefUrl: string | null = null;
+  if (yoxaRun) {
+    const { data: signed } = await supabase.storage
+      .from("project-attachments")
+      .createSignedUrl(`${projectId}/conversation-brief.pdf`, 3600);
+    conversationBriefUrl = signed?.signedUrl ?? null;
+  }
 
   return (
     <div className="space-y-6">
@@ -95,9 +98,21 @@ export default async function ProjectOverviewPage({
 
       <section>
         {yoxaRun ? (
-          <div className="flex items-center gap-2 rounded-2xl border border-accent/20 bg-accent/5 px-4 py-2.5 text-sm text-accent">
-            <Send className="h-4 w-4 shrink-0" />
-            Sent to Yoxa on {new Date(yoxaRun.created_at).toLocaleDateString()} — planning and design work is underway.
+          <div className="flex items-center justify-between gap-2 rounded-2xl border border-accent/20 bg-accent/5 px-4 py-2.5 text-sm text-accent">
+            <span className="flex items-center gap-2">
+              <Send className="h-4 w-4 shrink-0" />
+              Sent to Yoxa on {new Date(yoxaRun.created_at).toLocaleDateString()} — planning and design work is underway.
+            </span>
+            {conversationBriefUrl && (
+              <a
+                href={conversationBriefUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="shrink-0 text-xs underline underline-offset-2"
+              >
+                Download conversation brief
+              </a>
+            )}
           </div>
         ) : (
           <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-2.5 text-sm text-muted-foreground">
@@ -122,7 +137,7 @@ export default async function ProjectOverviewPage({
         </section>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <section>
           <h2 className="mb-2 text-sm font-medium text-foreground/90">
             Open questions ({openQuestions?.length ?? 0})
@@ -152,27 +167,6 @@ export default async function ProjectOverviewPage({
               </Card>
             ))}
             {(openConflicts?.length ?? 0) === 0 && (
-              <p className="text-xs text-muted-foreground">None</p>
-            )}
-          </div>
-        </section>
-
-        <section>
-          <h2 className="mb-2 text-sm font-medium text-foreground/90">
-            Escalations ({openEscalations?.length ?? 0})
-          </h2>
-          <div className="space-y-1">
-            {(openEscalations ?? []).map((e) => (
-              <Card key={e.id} className="border-accent/20 bg-accent/5">
-                <CardContent className="px-3 py-2 text-xs text-accent">
-                  {e.question ?? e.trigger}{" "}
-                  <Badge variant="secondary" className="ml-1 text-[10px] font-normal">
-                    needs {e.required_authority.replace("d3_", "").replace("d4_", "")}
-                  </Badge>
-                </CardContent>
-              </Card>
-            ))}
-            {(openEscalations?.length ?? 0) === 0 && (
               <p className="text-xs text-muted-foreground">None</p>
             )}
           </div>

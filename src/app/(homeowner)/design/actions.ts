@@ -59,7 +59,7 @@ export async function submitDesignFeedback(
     message: feedbackMessage,
     senderRole: "homeowner",
     attachments: [],
-    context: { recentConversation: [], openQuestions: [], domainReadiness: {} },
+    context: { recentConversation: [], openQuestions: [], domainReadiness: {}, knownEvidence: [] },
   });
 
   if (turnResult.extractedEvidence.length > 0) {

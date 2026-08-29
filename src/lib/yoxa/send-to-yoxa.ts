@@ -62,6 +62,18 @@ export async function sendToYoxa(
     return { ok: false, error: err instanceof Error ? err.message : "Failed to generate the conversation brief" };
   }
 
+  // Store the exact document being sent — before this, it existed only in
+  // memory for the duration of this request and was never recoverable
+  // afterward. Same bucket and per-project path convention as every other
+  // stored file; deliberately non-fatal, since a storage hiccup here
+  // shouldn't block the actual send to Yoxa.
+  const { error: briefUploadError } = await supabase.storage
+    .from("project-attachments")
+    .upload(`${projectId}/conversation-brief.pdf`, briefPdf, { contentType: "application/pdf", upsert: true });
+  if (briefUploadError) {
+    console.error("sendToYoxa: failed to store the conversation brief PDF", briefUploadError);
+  }
+
   const result = await triggerYoxaWorkflow({
     projectId,
     senderRole,

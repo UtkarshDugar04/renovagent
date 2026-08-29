@@ -149,7 +149,7 @@ export default async function UnderstandingPage() {
               </h2>
               <AttachmentList
                 projectId={membership.project_id}
-                initialAttachments={attachmentLinks.map((a) => ({ id: a.id, label: a.label ?? "attachment", url: a.url, status: a.status }))}
+                initialAttachments={attachmentLinks.map((a) => ({ id: a.id, label: a.label ?? "attachment", url: a.url, status: a.status, mimeType: a.mime_type }))}
               />
             </section>
           )}
@@ -166,6 +166,10 @@ export default async function UnderstandingPage() {
 
                 {domainArtifacts.map((artifact) => (
                   <div key={artifact.id} className="mb-3 overflow-hidden rounded-lg border border-border">
+                    <div className="flex items-center justify-between px-3 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      <span>{artifact.artifact_type.replace(/_/g, " ")}</span>
+                      <span>{new Date(artifact.created_at).toLocaleString()}</span>
+                    </div>
                     {artifact.image_storage_path ? (
                       // eslint-disable-next-line @next/next/no-img-element -- signed Supabase Storage URL
                       <img
@@ -174,6 +178,9 @@ export default async function UnderstandingPage() {
                         className="w-full bg-white object-contain"
                       />
                     ) : (
+                      // Agent-generated HTML — never trusted with script
+                      // execution. Empty sandbox = every iframe privilege
+                      // denied.
                       <iframe
                         srcDoc={artifact.content ?? ""}
                         sandbox=""
