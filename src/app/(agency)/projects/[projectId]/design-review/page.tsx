@@ -58,10 +58,24 @@ export default async function DesignReviewPage({
     imagesByOption.set(img.design_option_id, existing);
   }
 
+  const { data: sourcedProducts } = await supabase
+    .from("sourced_products")
+    .select("id, design_option_id, vendor_name, product_name, product_url, price, currency, notes")
+    .in("design_option_id", options.map((o) => o.id))
+    .order("created_at", { ascending: true });
+
+  const productsByOption = new Map<string, typeof sourcedProducts>();
+  for (const p of sourcedProducts ?? []) {
+    const existing = productsByOption.get(p.design_option_id) ?? [];
+    existing.push(p);
+    productsByOption.set(p.design_option_id, existing);
+  }
+
   return (
     <div className="space-y-4">
       {options.map((o) => {
         const optionFindings = findingsByOption.get(o.id) ?? [];
+        const optionProducts = productsByOption.get(o.id) ?? [];
         return (
           <Card key={o.id}>
             <CardHeader>
@@ -102,6 +116,31 @@ export default async function DesignReviewPage({
               <p className="text-xs text-muted-foreground/70">
                 Sourcing: {o.sourcing_status.replace(/_/g, " ")}
               </p>
+
+              {optionProducts.length > 0 && (
+                <div className="space-y-1.5 border-t border-border pt-2">
+                  <p className="text-xs font-medium text-foreground/80">Sourced from</p>
+                  {optionProducts.map((p) => (
+                    <div key={p!.id} className="text-xs text-muted-foreground">
+                      <span className="text-foreground/90">{p!.vendor_name}</span>
+                      {" · "}
+                      {p!.product_url ? (
+                        <a href={p!.product_url} target="_blank" rel="noreferrer" className="text-accent underline">
+                          {p!.product_name}
+                        </a>
+                      ) : (
+                        <span>{p!.product_name}</span>
+                      )}
+                      {p!.price != null && (
+                        <span className="ml-1">
+                          — {p!.currency} {p!.price.toLocaleString("en-IN")}
+                        </span>
+                      )}
+                      {p!.notes && <p className="mt-0.5 text-muted-foreground/70">{p!.notes}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {optionFindings.length > 0 && (
                 <div className="space-y-1.5 border-t border-border pt-2">

@@ -10,6 +10,7 @@ import { updateCanonicalRenovationDna } from "@/lib/yoxa/tools/update-canonical-
 import { recordEngineArtifact } from "@/lib/yoxa/tools/record-engine-artifact";
 import { recordPreferenceMoodboardImages } from "@/lib/yoxa/tools/record-preference-moodboard-images";
 import { recordDesignOptionImages } from "@/lib/yoxa/tools/record-design-option-images";
+import { recordSourcedProducts } from "@/lib/yoxa/tools/record-sourced-products";
 import { recordPendingOrchestrationState } from "@/lib/yoxa/tools/record-pending-orchestration-state";
 import { recordReadinessAssessment } from "@/lib/yoxa/tools/record-readiness-assessment";
 import { recordProposedDesignPackage } from "@/lib/yoxa/tools/record-proposed-design-package";
@@ -541,6 +542,36 @@ function buildServer() {
       try {
         const { projectId, designOptionId, images } = stripNulls(raw);
         return textResult(await recordDesignOptionImages(supabase, projectId, { designOptionId, images }));
+      } catch (err) {
+        return errorResult(err instanceof ToolError ? err.message : String(err));
+      }
+    }
+  );
+
+  server.registerTool(
+    "recordSourcedProducts",
+    {
+      description: "Record the real vendors and products Sourcing found for an already-registered design option (call recordProposedDesignPackage first and use the returned option id) — real vendor name, real product name, the real listing URL Search Online Product Listings actually returned, and its real price in INR if known. Never invent a vendor, product, or price that wasn't actually returned by a search. Call once per option with one or more products.",
+      inputSchema: {
+        ...projectIdSchema,
+        designOptionId: z.string().uuid(),
+        products: z
+          .array(
+            z.object({
+              vendorName: z.string().describe("The real seller/store name, e.g. 'Pepperfry', 'Urban Ladder'."),
+              productName: z.string().describe("The real product/listing title as found."),
+              productUrl: z.string().nullish().describe("The real listing URL, if the search returned one."),
+              price: z.number().nullish().describe("The real listed price in INR, if known."),
+              notes: z.string().nullish().describe("Any relevant detail, e.g. why this was chosen over an alternative."),
+            })
+          )
+          .min(1),
+      },
+    },
+    async (raw) => {
+      try {
+        const { projectId, designOptionId, products } = stripNulls(raw);
+        return textResult(await recordSourcedProducts(supabase, projectId, { designOptionId, products }));
       } catch (err) {
         return errorResult(err instanceof ToolError ? err.message : String(err));
       }

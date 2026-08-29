@@ -1264,6 +1264,50 @@ export type Database = {
           },
         ]
       }
+      sourced_products: {
+        Row: {
+          created_at: string
+          currency: string
+          design_option_id: string
+          id: string
+          notes: string | null
+          price: number | null
+          product_name: string
+          product_url: string | null
+          vendor_name: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          design_option_id: string
+          id?: string
+          notes?: string | null
+          price?: number | null
+          product_name: string
+          product_url?: string | null
+          vendor_name: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          design_option_id?: string
+          id?: string
+          notes?: string | null
+          price?: number | null
+          product_name?: string
+          product_url?: string | null
+          vendor_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourced_products_design_option_id_fkey"
+            columns: ["design_option_id"]
+            isOneToOne: false
+            referencedRelation: "design_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spatial_elements: {
         Row: {
           attributes: Json
