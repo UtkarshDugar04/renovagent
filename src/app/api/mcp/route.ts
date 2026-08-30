@@ -103,7 +103,7 @@ function buildServer() {
   server.registerTool(
     "getCanonicalRenovationDna",
     {
-      description: "Read the full canonical Renovation DNA for one project — household, evidence, questions, assumptions, decisions, trade-offs, conflicts, readiness, constraints, budget lines, spatial elements, design rounds, design options, design option feedback.",
+      description: "Read the full canonical Renovation DNA for one project — household, evidence, questions, assumptions, decisions, trade-offs, conflicts, readiness, constraints, budget lines, spatial elements, design rounds, design options, design option feedback, sourced products (the real vendor/product/price/URL Sourcing found for a design option, via recordSourcedProducts).",
       inputSchema: projectIdSchema,
     },
     async ({ projectId }) => {

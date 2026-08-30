@@ -21,11 +21,28 @@ export async function generateHandoffBrief(projectId: string) {
         .eq("project_id", projectId),
       supabase
         .from("design_options")
-        .select("label, status")
+        .select("id, label, status")
         .eq("project_id", projectId)
         .eq("visible_to_homeowner", true),
       supabase.from("projects").select("name, scope_summary").eq("id", projectId).single(),
     ]);
+
+  // Real vendor/product/price for whichever options actually have any —
+  // the whole point of a handoff document is giving whoever executes this
+  // something concrete to act on, not just a description of intent.
+  const { data: sourcedProducts } = options && options.length > 0
+    ? await supabase
+        .from("sourced_products")
+        .select("design_option_id, vendor_name, product_name, product_url, price, currency")
+        .in("design_option_id", options.map((o) => o.id))
+    : { data: [] as { design_option_id: string; vendor_name: string; product_name: string; product_url: string | null; price: number | null; currency: string }[] };
+
+  const productsByOption = new Map<string, typeof sourcedProducts>();
+  for (const p of sourcedProducts ?? []) {
+    const existing = productsByOption.get(p.design_option_id) ?? [];
+    existing.push(p);
+    productsByOption.set(p.design_option_id, existing);
+  }
 
   const decisionLines = (decisions ?? [])
     .filter((d) => d.decision_text !== "meaning_verification_confirmed")
@@ -43,7 +60,15 @@ export async function generateHandoffBrief(projectId: string) {
     decisionLines || "(none recorded yet)",
     "",
     "Design options presented:",
-    (options ?? []).map((o) => `- ${o.label} (${o.status})`).join("\n") || "(none yet)",
+    (options ?? [])
+      .map((o) => {
+        const products = productsByOption.get(o.id) ?? [];
+        const productLines = products
+          .map((p) => `  · ${p!.vendor_name} — ${p!.product_name}${p!.price != null ? ` (${p!.currency} ${p!.price.toLocaleString("en-IN")})` : ""}${p!.product_url ? ` — ${p!.product_url}` : ""}`)
+          .join("\n");
+        return `- ${o.label} (${o.status})${productLines ? `\n${productLines}` : ""}`;
+      })
+      .join("\n") || "(none yet)",
     "",
     "Still unresolved:",
     unresolvedEscalations.map((e) => `- ${e.question ?? e.trigger}`).join("\n") ||

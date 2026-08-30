@@ -20,6 +20,7 @@ interface HandoffRecord {
 interface DesignReference {
   optionLabel: string;
   images: { id: string; url: string; angle: string | null }[];
+  products: { id: string; vendor_name: string; product_name: string; product_url: string | null; price: number | null; currency: string }[];
 }
 
 export function HandoffPanel({
@@ -104,6 +105,24 @@ export function HandoffPanel({
                     </div>
                   ))}
                 </div>
+                {ref.products.length > 0 && (
+                  <div className="space-y-1 pt-1">
+                    {ref.products.map((p) => (
+                      <p key={p.id} className="text-xs text-muted-foreground">
+                        <span className="text-foreground/90">{p.vendor_name}</span>
+                        {" · "}
+                        {p.product_url ? (
+                          <a href={p.product_url} target="_blank" rel="noreferrer" className="text-accent underline">
+                            {p.product_name}
+                          </a>
+                        ) : (
+                          p.product_name
+                        )}
+                        {p.price != null && ` — ${p.currency} ${p.price.toLocaleString("en-IN")}`}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </CardContent>

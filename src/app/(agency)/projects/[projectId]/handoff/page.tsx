@@ -29,23 +29,35 @@ export default async function HandoffPage({
         .in("design_option_id", options.map((o) => o.id))
     : { data: [] };
 
+  const { data: sourcedProducts } = options?.length
+    ? await supabase
+        .from("sourced_products")
+        .select("id, design_option_id, vendor_name, product_name, product_url, price, currency")
+        .in("design_option_id", options.map((o) => o.id))
+    : { data: [] };
+
   const labelByOption = new Map((options ?? []).map((o) => [o.id, o.label]));
   const imagesByOption = new Map<
     string,
-    { optionLabel: string; images: { id: string; url: string; angle: string | null }[] }
+    {
+      optionLabel: string;
+      images: { id: string; url: string; angle: string | null }[];
+      products: { id: string; vendor_name: string; product_name: string; product_url: string | null; price: number | null; currency: string }[];
+    }
   >();
+  function refFor(optionId: string) {
+    const existing = imagesByOption.get(optionId);
+    if (existing) return existing;
+    const created = { optionLabel: labelByOption.get(optionId) ?? "Design option", images: [], products: [] };
+    imagesByOption.set(optionId, created);
+    return created;
+  }
   for (const img of optionImages ?? []) {
     const { data } = await supabase.storage.from("project-attachments").createSignedUrl(img.storage_path, 3600);
-    const entry = { id: img.id, url: data?.signedUrl ?? "", angle: img.angle };
-    const existing = imagesByOption.get(img.design_option_id);
-    if (existing) {
-      existing.images.push(entry);
-    } else {
-      imagesByOption.set(img.design_option_id, {
-        optionLabel: labelByOption.get(img.design_option_id) ?? "Design option",
-        images: [entry],
-      });
-    }
+    refFor(img.design_option_id).images.push({ id: img.id, url: data?.signedUrl ?? "", angle: img.angle });
+  }
+  for (const p of sourcedProducts ?? []) {
+    refFor(p.design_option_id).products.push(p);
   }
 
   // Latest floor plan, if Spatial has produced one — an execution team

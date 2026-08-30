@@ -78,6 +78,18 @@ export default async function DesignPage() {
       imagesByOption.set(img.design_option_id, existing);
     }
 
+    const { data: sourcedProducts } = await supabase
+      .from("sourced_products")
+      .select("id, design_option_id, vendor_name, product_name, product_url, price, currency")
+      .in("design_option_id", options.map((o) => o.id));
+
+    const productsByOption = new Map<string, typeof sourcedProducts>();
+    for (const p of sourcedProducts ?? []) {
+      const existing = productsByOption.get(p.design_option_id) ?? [];
+      existing.push(p);
+      productsByOption.set(p.design_option_id, existing);
+    }
+
     return (
       <div className="space-y-4">
         <h1 className="text-lg font-semibold tracking-tight">Design exploration</h1>
@@ -90,6 +102,7 @@ export default async function DesignPage() {
                 ...o,
                 cost_band: o.cost_band as { low: number; high: number; confidence: string } | null,
                 images: imagesByOption.get(o.id) ?? [],
+                sourcedProducts: productsByOption.get(o.id) ?? [],
               }}
             />
           ))}

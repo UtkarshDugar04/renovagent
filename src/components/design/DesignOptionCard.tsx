@@ -19,6 +19,15 @@ interface DesignOptionImage {
   angle: string | null;
 }
 
+interface SourcedProduct {
+  id: string;
+  vendor_name: string;
+  product_name: string;
+  product_url: string | null;
+  price: number | null;
+  currency: string;
+}
+
 interface DesignOption {
   id: string;
   label: string;
@@ -29,6 +38,7 @@ interface DesignOption {
   what_it_would_feel_like: string | null;
   status: string;
   images?: DesignOptionImage[];
+  sourcedProducts?: SourcedProduct[];
 }
 
 const SUB_ELEMENTS = ["layout", "materials", "colour", "storage", "lighting", "cost"] as const;
@@ -109,6 +119,30 @@ export function DesignOptionCard({
             Estimated ₹{option.cost_band.low.toLocaleString()}–₹{option.cost_band.high.toLocaleString()}
             {option.sourcing_status !== "grounded" && " (indicative, not yet vendor-confirmed)"}
           </p>
+        )}
+
+        {option.sourcedProducts && option.sourcedProducts.length > 0 && (
+          <div className="space-y-1 border-t border-border pt-2">
+            <p className="text-xs font-medium text-foreground/80">Sourced from</p>
+            {option.sourcedProducts.map((p) => (
+              <div key={p.id} className="text-xs text-muted-foreground">
+                <span className="text-foreground/90">{p.vendor_name}</span>
+                {" · "}
+                {p.product_url ? (
+                  <a href={p.product_url} target="_blank" rel="noreferrer" className="text-accent underline">
+                    {p.product_name}
+                  </a>
+                ) : (
+                  <span>{p.product_name}</span>
+                )}
+                {p.price != null && (
+                  <span className="ml-1">
+                    — {p.currency} {p.price.toLocaleString("en-IN")}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         )}
 
         <div className="border-t border-border pt-3">

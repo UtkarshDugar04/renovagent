@@ -33,6 +33,7 @@ export async function getCanonicalRenovationDna(supabase: SupabaseClient<any>, p
     { data: designRounds },
     { data: designOptions },
     { data: designOptionFeedback },
+    { data: sourcedProducts },
   ] = await Promise.all([
     supabase
       .from("household_members")
@@ -97,6 +98,16 @@ export async function getCanonicalRenovationDna(supabase: SupabaseClient<any>, p
       .select("id, design_option_id, sentiment, comment, sub_element, created_at, design_options!inner(project_id)")
       .eq("design_options.project_id", projectId)
       .order("created_at", { ascending: true }),
+    // Same shape as design_option_feedback above — sourced_products has no
+    // project_id of its own either. This is what makes a design option's
+    // sourcing_status="grounded" concrete: the real vendor/product/price a
+    // later agent (e.g. Collaboration Handoff) can put directly into a
+    // brief instead of describing the option only in the abstract.
+    supabase
+      .from("sourced_products")
+      .select("id, design_option_id, vendor_name, product_name, product_url, price, currency, notes, created_at, design_options!inner(project_id)")
+      .eq("design_options.project_id", projectId)
+      .order("created_at", { ascending: true }),
   ]);
 
   return {
@@ -118,6 +129,10 @@ export async function getCanonicalRenovationDna(supabase: SupabaseClient<any>, p
     designOptionFeedback: (designOptionFeedback ?? []).map(
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       ({ design_options, ...feedback }: Record<string, unknown>) => feedback
+    ),
+    sourcedProducts: (sourcedProducts ?? []).map(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      ({ design_options, ...product }: Record<string, unknown>) => product
     ),
   };
 }
